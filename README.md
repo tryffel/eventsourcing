@@ -308,7 +308,7 @@ Like the event store's the snapshot repository is built on the same design. The 
 
 ```go
 type SnapshotStore interface {
-	Save(id, aggregateType string, snapshot Snapshot) error
+	Save(snapshot Snapshot) error
 	Get(ctx context.Context, id, aggregateType string) (Snapshot, error)
 }
 ```

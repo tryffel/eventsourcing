@@ -19,6 +19,6 @@ type Snapshot struct {
 
 // SnapshotStore interface expose the methods an snapshot store must uphold
 type SnapshotStore interface {
-	Save(id, aggregateType string, snapshot Snapshot) error
+	Save(snapshot Snapshot) error
 	Get(ctx context.Context, id, aggregateType string) (Snapshot, error)
 }

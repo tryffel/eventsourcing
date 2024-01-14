@@ -146,7 +146,7 @@ func (s *SnapshotRepository) SaveSnapshot(a aggregate) error {
 		State:         state,
 	}
 
-	err = s.snapshotStore.Save(root.ID(), aggregateType(a), snapshot)
+	err = s.snapshotStore.Save(snapshot)
 	if err != nil {
 		return err
 	}
