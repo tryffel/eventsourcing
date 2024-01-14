@@ -47,8 +47,12 @@ func (s *SnapshotRepository) EventRepository() *EventRepository {
 }
 
 func (s *SnapshotRepository) GetWithContext(ctx context.Context, id string, a aggregate) error {
-	err := s.GetSnapshot(ctx, id, a)
-	if err != nil {
+	if reflect.ValueOf(a).Kind() != reflect.Ptr {
+		return ErrAggregateNeedsToBeAPointer
+	}
+
+	err := s.getSnapshot(ctx, id, a)
+	if err != nil && !errors.Is(err, core.ErrSnapshotNotFound) {
 		return err
 	}
 
@@ -62,33 +66,41 @@ func (s *SnapshotRepository) GetSnapshot(ctx context.Context, id string, a aggre
 	if reflect.ValueOf(a).Kind() != reflect.Ptr {
 		return ErrAggregateNeedsToBeAPointer
 	}
-
-	snapshot, err := s.snapshotStore.Get(ctx, id, aggregateType(a))
-	if err != nil && !errors.Is(err, core.ErrSnapshotNotFound) {
+	err := s.getSnapshot(ctx, id, a)
+	if err != nil && errors.Is(err, core.ErrSnapshotNotFound) {
+		return ErrAggregateNotFound
+	} else if err != nil {
 		return err
 	}
-	// Snapshot found
-	if err == nil {
-		// Does the aggregate have specific snapshot handeling
-		sa, ok := a.(SnapshotAggregate)
-		if ok {
-			err = sa.DeserializeSnapshot(s.Deserializer, snapshot.State)
-			if err != nil {
-				return err
-			}
-		} else {
-			err = s.Deserializer(snapshot.State, a)
-			if err != nil {
-				return err
-			}
-		}
+	return nil
+}
 
-		// set the internal aggregate properties
-		root := a.Root()
-		root.aggregateGlobalVersion = Version(snapshot.GlobalVersion)
-		root.aggregateVersion = Version(snapshot.Version)
-		root.aggregateID = snapshot.ID
+func (s *SnapshotRepository) getSnapshot(ctx context.Context, id string, a aggregate) error {
+	snapshot, err := s.snapshotStore.Get(ctx, id, aggregateType(a))
+	if err != nil {
+		return err
 	}
+
+	// Does the aggregate have specific snapshot handeling
+	sa, ok := a.(SnapshotAggregate)
+	if ok {
+		err = sa.DeserializeSnapshot(s.Deserializer, snapshot.State)
+		if err != nil {
+			return err
+		}
+	} else {
+		err = s.Deserializer(snapshot.State, a)
+		if err != nil {
+			return err
+		}
+	}
+
+	// set the internal aggregate properties
+	root := a.Root()
+	root.aggregateGlobalVersion = Version(snapshot.GlobalVersion)
+	root.aggregateVersion = Version(snapshot.Version)
+	root.aggregateID = snapshot.ID
+
 	return nil
 }
 

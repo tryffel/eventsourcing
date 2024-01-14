@@ -2,6 +2,7 @@ package eventsourcing_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/hallgren/eventsourcing"
@@ -44,6 +45,30 @@ func TestSaveAndGetSnapshot(t *testing.T) {
 	}
 }
 
+func TestGetNoneExistingSnapshotOrEvents(t *testing.T) {
+	eventrepo := eventsourcing.NewEventRepository(memory.Create())
+	eventrepo.Register(&Person{})
+
+	snapshotrepo := eventsourcing.NewSnapshotRepository(snap.Create(), eventrepo)
+	person := Person{}
+	err := snapshotrepo.GetWithContext(context.Background(), "none_existing_id", &person)
+	if !errors.Is(err, eventsourcing.ErrAggregateNotFound) {
+		t.Fatal("should get error when no snapshot or event stored for aggregate")
+	}
+}
+
+func TestGetNoneExistingSnapshot(t *testing.T) {
+	eventrepo := eventsourcing.NewEventRepository(memory.Create())
+	eventrepo.Register(&Person{})
+
+	snapshotrepo := eventsourcing.NewSnapshotRepository(snap.Create(), eventrepo)
+	person := Person{}
+	err := snapshotrepo.GetSnapshot(context.Background(), "none_existing_id", &person)
+	if !errors.Is(err, eventsourcing.ErrAggregateNotFound) {
+		t.Fatal("should get error when no snapshot stored for aggregate")
+	}
+}
+
 func TestSaveSnapshotWithUnsavedEvents(t *testing.T) {
 	eventrepo := eventsourcing.NewEventRepository(memory.Create())
 	eventrepo.Register(&Person{})
@@ -59,6 +84,8 @@ func TestSaveSnapshotWithUnsavedEvents(t *testing.T) {
 		t.Fatalf("should not be able to save snapshot with unsaved events")
 	}
 }
+
+// test custom snapshot struct to handle none exported properties on aggregate
 
 type snapshot struct {
 	eventsourcing.AggregateRoot
