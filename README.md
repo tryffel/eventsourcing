@@ -313,7 +313,7 @@ type SnapshotStore interface {
 }
 ```
 
-Currently there is only one snapshot store and its only storing snapshots in memory.
+Currently there is only one snapshot store and it's only storing snapshots in memory.
 
 ### Unexported aggregate properties
 
