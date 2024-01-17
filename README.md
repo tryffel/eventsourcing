@@ -295,7 +295,7 @@ Save(a aggregate) error
 // Store only the aggregate snapshot. Will return an error if there are events that are not stored on the aggregate
 SaveSnapshot(a aggregate) error
 
-// expose the underlaying event repository.
+// expose the underlying event repository.
 EventRepository() *EventRepository
 
 // register the aggregate in the underlaying event repository
