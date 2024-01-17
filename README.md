@@ -283,7 +283,7 @@ NewSnapshotRepository(snapshotStore core.SnapshotStore, eventRepo *EventReposito
 ```
 
 ```go
-// fetch the aggregate baesd on it's snapshot and the events after the version of the snapshot
+// fetch the aggregate based on its snapshot and the events after the version of the snapshot
 GetWithContext(ctx context.Context, id string, a aggregate) error
 
 // only fetch the aggregate snapshot and not any events.
