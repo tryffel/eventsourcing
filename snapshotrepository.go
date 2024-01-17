@@ -69,10 +69,8 @@ func (s *SnapshotRepository) GetSnapshot(ctx context.Context, id string, a aggre
 	err := s.getSnapshot(ctx, id, a)
 	if err != nil && errors.Is(err, core.ErrSnapshotNotFound) {
 		return ErrAggregateNotFound
-	} else if err != nil {
-		return err
 	}
-	return nil
+	return err
 }
 
 func (s *SnapshotRepository) getSnapshot(ctx context.Context, id string, a aggregate) error {
