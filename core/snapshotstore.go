@@ -17,7 +17,7 @@ type Snapshot struct {
 	State         []byte
 }
 
-// SnapshotStore interface expose the methods an snapshot store must uphold
+// SnapshotStore expose the methods a snapshot store must uphold
 type SnapshotStore interface {
 	Save(snapshot Snapshot) error
 	Get(ctx context.Context, id, aggregateType string) (Snapshot, error)
