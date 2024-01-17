@@ -12,7 +12,7 @@ import (
 // ErrUnsavedEvents aggregate events must be saved before creating snapshot
 var ErrUnsavedEvents = errors.New("aggregate holds unsaved events")
 
-// SnapshotAggregate interface is used to serialize a aggregate that has none exposrted properties
+// SnapshotAggregate interface is used to serialize an aggregate that has no exported properties
 type SnapshotAggregate interface {
 	SerializeSnapshot(SerializeFunc) ([]byte, error)
 	DeserializeSnapshot(DeserializeFunc, []byte) error
