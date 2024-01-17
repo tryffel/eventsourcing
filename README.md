@@ -344,7 +344,7 @@ type PersonSnapshot struct {
 // callback that maps the aggregate to the snapshot struct with the exported property
 func (s *snapshot) SerializeSnapshot(m eventsourcing.SerializeFunc) ([]byte, error) {
 	snap := snapshotInternal{
-		UnExported: s.unexported,
+		Unexported: s.unexported,
 	}
 	return m(snap)
 }
