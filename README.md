@@ -289,7 +289,7 @@ GetWithContext(ctx context.Context, id string, a aggregate) error
 // only fetch the aggregate snapshot and not any events
 GetSnapshot(ctx context.Context, id string, a aggregate) error
 
-// Store the aggregate events and after the snapshot
+// store the aggregate events and after the snapshot
 Save(a aggregate) error
 
 // Store only the aggregate snapshot. Will return an error if there are events that are not stored on the aggregate
