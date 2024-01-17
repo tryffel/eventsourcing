@@ -332,7 +332,7 @@ Example:
 ```go
 // aggregate
 type Person struct {
-    eventsourcing.AggregateRoot
+	eventsourcing.AggregateRoot
 	unexported string
 }
 
