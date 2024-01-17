@@ -210,7 +210,7 @@ The memory based event store is part of the main module and does not need to be 
 
 ### Custom event store
 
-If you want to store your events in another database beside the already implemented event stores: `sql`, `bbolt`, `esdb` or `memory`, you can implement a custom made event store. It has to implement the following  interface to support the eventsourcing.Repository.
+If you want to store events in a database beside the already implemented event stores (`sql`, `bbolt`, `esdb` and `memory`) you can implement, or provide, another event store. It has to implement the `EventStore`  interface to support the eventsourcing.Repository.
 
 ```go
 type EventStore interface {
