@@ -79,7 +79,7 @@ func (s *SnapshotRepository) getSnapshot(ctx context.Context, id string, a aggre
 		return err
 	}
 
-	// Does the aggregate have specific snapshot handeling
+	// Does the aggregate have specific snapshot handling
 	sa, ok := a.(SnapshotAggregate)
 	if ok {
 		err = sa.DeserializeSnapshot(s.Deserializer, snapshot.State)
