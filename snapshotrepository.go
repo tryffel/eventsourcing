@@ -113,7 +113,7 @@ func (s *SnapshotRepository) Save(a aggregate) error {
 	return s.SaveSnapshot(a)
 }
 
-// SaveSnapshot will only store the snapshot and will return error if there is events that is not stored
+// SaveSnapshot will only store the snapshot and will return an error if there are events that are not stored
 func (s *SnapshotRepository) SaveSnapshot(a aggregate) error {
 	root := a.Root()
 	if len(root.Events()) > 0 {
