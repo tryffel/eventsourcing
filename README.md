@@ -270,7 +270,7 @@ s.Close()
 
 ## Snapshot
 
-If an aggregate has alot of events it can take some time fetching it's event and building the aggregate. This can be optimised with the help of a snapshot. The snapshot is the state of the aggregate on a specific version. Instead of iterating all aggregate events only the events after the version is iterated and used to build the aggregate. The use of snapshots is optional and is exposed via the snapshot repository.
+If an aggregate has a lot of events it can take some time fetching it's event and building the aggregate. This can be optimized with the help of a snapshot. The snapshot is the state of the aggregate on a specific version. Instead of iterating all aggregate events, only the events after the version is iterated and used to build the aggregate. The use of snapshots is optional and is exposed via the snapshot repository.
 
 ### Snapshot Repository
 
