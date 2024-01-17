@@ -208,7 +208,7 @@ Submodules needs to be fetched separately via go get.
 
 The memory based event store is part of the main module and does not need to be fetched separately.
 
-### Custom made event store
+### Custom event store
 
 If you want to store your events in another database beside the already implemented event stores: `sql`, `bbolt`, `esdb` or `memory`, you can implement a custom made event store. It has to implement the following  interface to support the eventsourcing.Repository.
 
