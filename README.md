@@ -274,7 +274,7 @@ If an aggregate has a lot of events it can take some time fetching it's event an
 
 ### Snapshot Repository
 
-The snapshot repository is used to fetch and save aggregates based snapshots and events (if there is events after the snapshot version). 
+The snapshot repository is used to fetch and save aggregate-based snapshots and events (if there are events after the snapshot version). 
 
 The snapshot repository is a layer on top of the event repository.
 
