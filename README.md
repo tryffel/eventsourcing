@@ -298,7 +298,7 @@ SaveSnapshot(a aggregate) error
 // expose the underlying event repository.
 EventRepository() *EventRepository
 
-// register the aggregate in the underlaying event repository
+// register the aggregate in the underlying event repository
 Register(a aggregate)
 ```
 
