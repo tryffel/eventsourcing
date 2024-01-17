@@ -122,7 +122,7 @@ func (s *SnapshotRepository) SaveSnapshot(a aggregate) error {
 
 	state := []byte{}
 	var err error
-	// Does the aggregate have specific snapshot handeling
+	// Does the aggregate have specific snapshot handling
 	sa, ok := a.(SnapshotAggregate)
 	if ok {
 		state, err = sa.SerializeSnapshot(s.Serializer)
