@@ -223,7 +223,7 @@ The event store needs to import the `github.com/hallgren/eventsourcing/core` mod
 
 ## Serializer
 
-To store events they have to be serialised into `[]byte`. Default the `encoding/json` is used but it could be replaced on the repository by setting the `repo.Serializer` and `repo.Deserializer` function properties.
+To store events they have to be serialised into `[]byte`. By default the `encoding/json` is used but it could be replaced on the repository by setting the `repo.Serializer` and `repo.Deserializer` function properties.
 
 ### Event Subscription
 
