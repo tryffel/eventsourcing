@@ -327,7 +327,7 @@ type SnapshotAggregate interface {
 }
 ```
 
-Exampel:
+Example:
 
 ```go
 // aggregate
