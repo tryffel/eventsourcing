@@ -85,7 +85,7 @@ func TestSaveSnapshotWithUnsavedEvents(t *testing.T) {
 	}
 }
 
-// test custom snapshot struct to handle none exported properties on aggregate
+// test custom snapshot struct to handle non-exported properties on aggregate
 
 type snapshot struct {
 	eventsourcing.AggregateRoot
