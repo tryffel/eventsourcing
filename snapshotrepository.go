@@ -60,7 +60,7 @@ func (s *SnapshotRepository) GetWithContext(ctx context.Context, id string, a ag
 	return s.eventRepository.GetWithContext(ctx, id, a)
 }
 
-// GetSnapshot return aggregate that is based on the snapshot data
+// GetSnapshot returns aggregate that is based on the snapshot data
 // Beware that it could be more events that has happened after the snapshot was taken
 func (s *SnapshotRepository) GetSnapshot(ctx context.Context, id string, a aggregate) error {
 	if reflect.ValueOf(a).Kind() != reflect.Ptr {
