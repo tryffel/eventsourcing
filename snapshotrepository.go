@@ -40,7 +40,7 @@ func (s *SnapshotRepository) Register(a aggregate) {
 	s.eventRepository.Register(a)
 }
 
-// EventRepository return the underlaying event repository. If the user wants to operate on the event repository
+// EventRepository returns the underlying event repository. If the user wants to operate on the event repository
 // and not use snapshot
 func (s *SnapshotRepository) EventRepository() *EventRepository {
 	return s.eventRepository
