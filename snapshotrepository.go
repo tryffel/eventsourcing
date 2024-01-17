@@ -145,8 +145,5 @@ func (s *SnapshotRepository) SaveSnapshot(a aggregate) error {
 	}
 
 	err = s.snapshotStore.Save(snapshot)
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
