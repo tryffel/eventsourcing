@@ -313,8 +313,6 @@ type SnapshotStore interface {
 }
 ```
 
-Currently there is only one snapshot store and it's only storing snapshots in memory.
-
 ### Unexported aggregate properties
 
 As unexported properties on a struct is not possible to serialize there is the same limitation on aggregates.
