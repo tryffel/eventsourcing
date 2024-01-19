@@ -10,11 +10,15 @@ import (
 	snap "github.com/hallgren/eventsourcing/snapshotstore/memory"
 )
 
-func TestSaveAndGetSnapshot(t *testing.T) {
+func setup() *eventsourcing.SnapshotRepository {
 	eventrepo := eventsourcing.NewEventRepository(memory.Create())
 	eventrepo.Register(&Person{})
 
-	snapshotrepo := eventsourcing.NewSnapshotRepository(snap.Create(), eventrepo)
+	return eventsourcing.NewSnapshotRepository(snap.Create(), eventrepo)
+}
+
+func TestSaveAndGetSnapshot(t *testing.T) {
+	snapshotrepo := setup()
 
 	person, err := CreatePerson("kalle")
 	if err != nil {
@@ -46,10 +50,8 @@ func TestSaveAndGetSnapshot(t *testing.T) {
 }
 
 func TestGetNoneExistingSnapshotOrEvents(t *testing.T) {
-	eventrepo := eventsourcing.NewEventRepository(memory.Create())
-	eventrepo.Register(&Person{})
+	snapshotrepo := setup()
 
-	snapshotrepo := eventsourcing.NewSnapshotRepository(snap.Create(), eventrepo)
 	person := Person{}
 	err := snapshotrepo.GetWithContext(context.Background(), "none_existing_id", &person)
 	if !errors.Is(err, eventsourcing.ErrAggregateNotFound) {
@@ -58,10 +60,8 @@ func TestGetNoneExistingSnapshotOrEvents(t *testing.T) {
 }
 
 func TestGetNoneExistingSnapshot(t *testing.T) {
-	eventrepo := eventsourcing.NewEventRepository(memory.Create())
-	eventrepo.Register(&Person{})
+	snapshotrepo := setup()
 
-	snapshotrepo := eventsourcing.NewSnapshotRepository(snap.Create(), eventrepo)
 	person := Person{}
 	err := snapshotrepo.GetSnapshot(context.Background(), "none_existing_id", &person)
 	if !errors.Is(err, eventsourcing.ErrAggregateNotFound) {
@@ -70,10 +70,7 @@ func TestGetNoneExistingSnapshot(t *testing.T) {
 }
 
 func TestSaveSnapshotWithUnsavedEvents(t *testing.T) {
-	eventrepo := eventsourcing.NewEventRepository(memory.Create())
-	eventrepo.Register(&Person{})
-
-	snapshotrepo := eventsourcing.NewSnapshotRepository(snap.Create(), eventrepo)
+	snapshotrepo := setup()
 
 	person, err := CreatePerson("kalle")
 	if err != nil {
@@ -147,22 +144,20 @@ func (s *snapshot) DeserializeSnapshot(m eventsourcing.DeserializeFunc, b []byte
 }
 
 func TestSnapshotNoneExported(t *testing.T) {
-	// use repo to reset events on person to be able to save snapshot
-	eventRepo := eventsourcing.NewEventRepository(memory.Create())
-	snapshotRepo := eventsourcing.NewSnapshotRepository(snap.Create(), eventRepo)
-	snapshotRepo.Register(&snapshot{})
+	snapshotrepo := setup()
+	snapshotrepo.Register(&snapshot{})
 
 	snap := New()
-	err := snapshotRepo.Save(snap)
+	err := snapshotrepo.Save(snap)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	snap.Command()
-	snapshotRepo.Save(snap)
+	snapshotrepo.Save(snap)
 
 	snap2 := snapshot{}
-	err = snapshotRepo.GetWithContext(context.Background(), snap.ID(), &snap2)
+	err = snapshotrepo.GetWithContext(context.Background(), snap.ID(), &snap2)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -17,6 +17,10 @@ func Create() *Memory {
 	}
 }
 
+func (m *Memory) Close() {
+
+}
+
 func (m *Memory) Get(ctx context.Context, aggregateID, aggregateType string) (core.Snapshot, error) {
 	snapshot, ok := m.snapshots[aggregateType+"_"+aggregateID]
 	if !ok {
