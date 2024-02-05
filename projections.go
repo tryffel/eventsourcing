@@ -1,6 +1,11 @@
 package eventsourcing
 
-import "github.com/hallgren/eventsourcing/core"
+import (
+	"time"
+
+	"github.com/hallgren/eventsourcing/core"
+	"github.com/hallgren/eventsourcing/internal"
+)
 
 type Projection struct {
 	getF        func() (core.Iterator, error)
@@ -9,12 +14,12 @@ type Projection struct {
 }
 
 type Projections struct {
-	register     *register // used to map back the event types
+	register     *internal.Register // used to map the event types
 	deserializer DeserializeFunc
 	projections  []Projection
 }
 
-func NewProjections(register *register, deserializer DeserializeFunc) *Projections {
+func NewProjections(register *internal.Register, deserializer DeserializeFunc) *Projections {
 	return &Projections{
 		register:     register,
 		deserializer: deserializer,
@@ -32,14 +37,21 @@ func (p *Projections) Add(getF func() (core.Iterator, error), callbackF func(e E
 	return &projection
 }
 
-// Close closes all projection
+// Start starts all projections
+func (p *Projections) Start() {
+	for _, projection := range p.projections {
+		projection.Run()
+	}
+}
+
+// Close closes all projections
 func (p *Projections) Close() {
 	for _, projection := range p.projections {
 		projection.Close()
 	}
 }
 
-func (p *Projection) Start() {
+func (p *Projection) Run() {
 	iterator, err := p.getF()
 	if err != nil {
 		return
@@ -47,7 +59,9 @@ func (p *Projection) Start() {
 
 	defer iterator.Close()
 
+	work := false
 	for iterator.Next() {
+		work = true
 		event, err := iterator.Value()
 		if err != nil {
 			return
@@ -64,13 +78,19 @@ func (p *Projection) Start() {
 		if err != nil {
 			return
 		}
-		metadata := make(map[string]interface{})
-		err = p.projections.deserializer(event.Metadata, &metadata)
-		if err != nil {
-			return
-		}
-		e := NewEvent(event, data, metadata)
+		/*
+			metadata := make(map[string]interface{})
+			err = p.projections.deserializer(event.Metadata, &metadata)
+			if err != nil {
+				return
+			}
+		*/
+		e := NewEvent(event, data, nil)
 		p.callbackF(e)
+	}
+	// sleep if no more events to iterate
+	if !work {
+		time.Sleep(time.Second * 10)
 	}
 }
 
