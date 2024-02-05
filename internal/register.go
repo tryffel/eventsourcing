@@ -1,4 +1,4 @@
-package eventsourcing
+package internal
 
 import (
 	"reflect"
@@ -7,15 +7,19 @@ import (
 )
 
 type registerFunc = func() interface{}
-type RegisterFunc = func(events ...interface{})
 
-type register struct {
+type Register struct {
 	aggregateEvents map[string]registerFunc
 	aggregates      map[string]struct{}
 }
 
-func newRegister() *register {
-	return &register{
+// Aggregate interface to use the aggregate root specific methods
+type aggregate interface {
+	Register(func(events ...interface{}))
+}
+
+func NewRegister() *Register {
+	return &Register{
 		aggregateEvents: make(map[string]registerFunc),
 		aggregates:      make(map[string]struct{}),
 	}
@@ -23,21 +27,21 @@ func newRegister() *register {
 
 // EventRegistered return the func to generate the correct event data type and true if it exists
 // otherwise false.
-func (r *register) EventRegistered(event core.Event) (registerFunc, bool) {
+func (r *Register) EventRegistered(event core.Event) (registerFunc, bool) {
 	d, ok := r.aggregateEvents[event.AggregateType+"_"+event.Reason]
 	return d, ok
 }
 
 // AggregateRegistered return true if the aggregate is registered
-func (r *register) AggregateRegistered(a aggregate) bool {
-	typ := aggregateType(a)
+func (r *Register) AggregateRegistered(a aggregate) bool {
+	typ := AggregateType(a)
 	_, ok := r.aggregates[typ]
 	return ok
 }
 
 // Register store the aggregate and calls the aggregate method Register to register the aggregate events.
-func (r *register) Register(a aggregate) {
-	typ := aggregateType(a)
+func (r *Register) Register(a aggregate) {
+	typ := AggregateType(a)
 	r.aggregates[typ] = struct{}{}
 
 	// fe is a helper function to make the event type registration simpler
@@ -62,4 +66,8 @@ func (r *register) Register(a aggregate) {
 
 func eventToFunc(event interface{}) registerFunc {
 	return func() interface{} { return event }
+}
+
+func AggregateType(a interface{}) string {
+	return reflect.TypeOf(a).Elem().Name()
 }

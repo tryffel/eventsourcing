@@ -7,6 +7,7 @@ import (
 	"reflect"
 
 	"github.com/hallgren/eventsourcing/core"
+	"github.com/hallgren/eventsourcing/internal"
 )
 
 // ErrUnsavedEvents aggregate events must be saved before creating snapshot
@@ -74,7 +75,7 @@ func (s *SnapshotRepository) GetSnapshot(ctx context.Context, id string, a aggre
 }
 
 func (s *SnapshotRepository) getSnapshot(ctx context.Context, id string, a aggregate) error {
-	snapshot, err := s.snapshotStore.Get(ctx, id, aggregateType(a))
+	snapshot, err := s.snapshotStore.Get(ctx, id, internal.AggregateType(a))
 	if err != nil {
 		return err
 	}
@@ -138,7 +139,7 @@ func (s *SnapshotRepository) SaveSnapshot(a aggregate) error {
 
 	snapshot := core.Snapshot{
 		ID:            root.ID(),
-		Type:          aggregateType(a),
+		Type:          internal.AggregateType(a),
 		Version:       core.Version(root.Version()),
 		GlobalVersion: core.Version(root.GlobalVersion()),
 		State:         state,
