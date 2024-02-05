@@ -14,30 +14,6 @@ type Memory struct {
 	lock            sync.Mutex
 }
 
-type iterator struct {
-	events   []core.Event
-	position int
-	event    core.Event
-}
-
-func (i *iterator) Next() bool {
-	if len(i.events) <= i.position {
-		return false
-	}
-	i.event = i.events[i.position]
-	i.position++
-	return true
-}
-
-func (i *iterator) Value() (core.Event, error) {
-	return i.event, nil
-}
-
-func (i *iterator) Close() {
-	i.events = nil
-	i.position = 0
-}
-
 // Create in memory event store
 func Create() *Memory {
 	return &Memory{
@@ -104,8 +80,16 @@ func (e *Memory) Get(ctx context.Context, id string, aggregateType string, after
 	return &iterator{events: events}, nil
 }
 
+// Close does nothing
+func (e *Memory) Close() {}
+
+// aggregateKey generate a aggregate key to store events against from aggregateType and aggregateID
+func aggregateKey(aggregateType, aggregateID string) string {
+	return aggregateType + "_" + aggregateID
+}
+
 // GlobalEvents will return count events in order globally from the start posistion
-func (e *Memory) GlobalEvents(start, count uint64) ([]core.Event, error) {
+func (e *Memory) GlobalEvents(start core.Version, count uint64) ([]core.Event, error) {
 	var events []core.Event
 	// make sure its thread safe
 	e.lock.Lock()
@@ -113,7 +97,7 @@ func (e *Memory) GlobalEvents(start, count uint64) ([]core.Event, error) {
 
 	for _, e := range e.eventsInOrder {
 		// find start position and append until counter is 0
-		if uint64(e.GlobalVersion) >= start {
+		if e.GlobalVersion >= start {
 			events = append(events, e)
 			count--
 			if count == 0 {
@@ -124,10 +108,16 @@ func (e *Memory) GlobalEvents(start, count uint64) ([]core.Event, error) {
 	return events, nil
 }
 
-// Close does nothing
-func (e *Memory) Close() {}
+func (m *Memory) All(start core.Version) func() (core.Iterator, error) {
+	return func() (core.Iterator, error) {
+		// Get 10 at a time
+		events, err := m.GlobalEvents(start, 10)
+		if err != nil {
+			return nil, err
+		}
 
-// aggregateKey generate a aggregate key to store events against from aggregateType and aggregateID
-func aggregateKey(aggregateType, aggregateID string) string {
-	return aggregateType + "_" + aggregateID
+		// next time the function is called is start from the last fetched event
+		start = events[0].GlobalVersion
+		return &iterator{events: events}, nil
+	}
 }
