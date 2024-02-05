@@ -108,10 +108,10 @@ func (e *Memory) GlobalEvents(start core.Version, count uint64) ([]core.Event, e
 	return events, nil
 }
 
-func (m *Memory) All(start core.Version) func() (core.Iterator, error) {
+func (m *Memory) All(start core.Version, count uint64) func() (core.Iterator, error) {
 	return func() (core.Iterator, error) {
 		// Get 10 at a time
-		events, err := m.GlobalEvents(start, 10)
+		events, err := m.GlobalEvents(start, count)
 		if err != nil {
 			return nil, err
 		}

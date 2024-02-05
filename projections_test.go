@@ -36,7 +36,7 @@ func createBornEvent(es *memory.Memory, name string) error {
 	return es.Save(events)
 }
 
-func Test(t *testing.T) {
+func TestRunOnce(t *testing.T) {
 	// setup
 	es := memory.Create()
 	register := internal.NewRegister()
@@ -52,14 +52,14 @@ func Test(t *testing.T) {
 
 	// run projection
 	p := eventsourcing.NewProjections(register, json.Unmarshal)
-	proj := p.Add(es.All(0), func(event eventsourcing.Event) {
+	proj := p.Add(es.All(0, 1), func(event eventsourcing.Event) {
 		switch e := event.Data().(type) {
 		case *Born:
 			projectedName = e.Name
 		}
 	})
 
-	err = proj.Run()
+	err = proj.RunOnce()
 	if err != nil {
 		t.Fatal(err)
 	}

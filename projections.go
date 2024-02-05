@@ -1,6 +1,8 @@
 package eventsourcing
 
 import (
+	"context"
+
 	"github.com/hallgren/eventsourcing/core"
 	"github.com/hallgren/eventsourcing/internal"
 )
@@ -37,9 +39,7 @@ func (p *Projections) Add(getF func() (core.Iterator, error), callbackF func(e E
 
 // Start starts all projections
 func (p *Projections) Start() {
-	for _, projection := range p.projections {
-		projection.Run()
-	}
+
 }
 
 // Close closes all projections
@@ -49,7 +49,21 @@ func (p *Projections) Close() {
 	}
 }
 
-func (p *Projection) Run() error {
+func (p *Projection) Run(ctx context.Context) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			err := p.RunOnce()
+			if err != nil {
+				return err
+			}
+		}
+	}
+}
+
+func (p *Projection) RunOnce() error {
 	iterator, err := p.getF()
 	if err != nil {
 		return err
