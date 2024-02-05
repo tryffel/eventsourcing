@@ -12,7 +12,7 @@ func main() {
 	var c = make(chan eventsourcing.Event)
 	// Setup a memory based event store
 	eventStore := memory.Create()
-	repo := eventsourcing.NewRepository(eventStore)
+	repo := eventsourcing.NewEventRepository(eventStore)
 	repo.Register(&FrequentFlierAccountAggregate{})
 
 	f := func(e eventsourcing.Event) {
