@@ -76,12 +76,14 @@ func (p *Projection) Run() error {
 		}
 
 		metadata := make(map[string]interface{})
-		err = p.projections.deserializer(event.Metadata, &metadata)
-		if err != nil {
-			return err
+		if event.Metadata != nil {
+			err = p.projections.deserializer(event.Metadata, &metadata)
+			if err != nil {
+				return err
+			}
 		}
 
-		e := NewEvent(event, data, nil)
+		e := NewEvent(event, data, metadata)
 		p.callbackF(e)
 	}
 	return nil

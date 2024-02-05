@@ -10,22 +10,17 @@ import (
 	"github.com/hallgren/eventsourcing/internal"
 )
 
-func Test(t *testing.T) {
-	name := ""
-	es := memory.Create()
-	register := internal.NewRegister()
-	register.Register(&Person{})
-
-	person, err := CreatePerson("kalle")
+func createBornEvent(es *memory.Memory, name string) error {
+	person, err := CreatePerson(name)
 	if err != nil {
-		t.Fatal(err)
+		return err
 	}
 
 	events := make([]core.Event, 0)
 	for _, e := range person.Events() {
 		data, err := json.Marshal(e.Data())
 		if err != nil {
-			t.Fatal(err)
+			return err
 		}
 
 		events = append(events, core.Event{
@@ -38,22 +33,38 @@ func Test(t *testing.T) {
 			Data:          data,
 		})
 	}
+	return es.Save(events)
+}
 
-	es.Save(events)
+func Test(t *testing.T) {
+	// setup
+	es := memory.Create()
+	register := internal.NewRegister()
+	register.Register(&Person{})
 
+	projectedName := ""
+	sourceName := "kalle"
+
+	err := createBornEvent(es, sourceName)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// run projection
 	p := eventsourcing.NewProjections(register, json.Unmarshal)
 	proj := p.Add(es.All(0), func(event eventsourcing.Event) {
 		switch e := event.Data().(type) {
 		case *Born:
-			name = e.Name
+			projectedName = e.Name
 		}
 	})
+
 	err = proj.Run()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if name != person.Name {
-		t.Fatalf("expected %q was %q", person.Name, name)
+	if projectedName != sourceName {
+		t.Fatalf("expected %q was %q", sourceName, projectedName)
 	}
 }
