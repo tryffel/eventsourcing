@@ -8,6 +8,7 @@ import (
 	"reflect"
 
 	"github.com/hallgren/eventsourcing/core"
+	"github.com/hallgren/eventsourcing/internal"
 )
 
 // Aggregate interface to use the aggregate root specific methods
@@ -39,6 +40,7 @@ var (
 	ErrConcurrency = errors.New("concurrency error")
 )
 
+type RegisterFunc = func(events ...interface{})
 type SerializeFunc func(v interface{}) ([]byte, error)
 type DeserializeFunc func(data []byte, v interface{}) error
 
@@ -47,7 +49,7 @@ type EventRepository struct {
 	eventStream *EventStream
 	eventStore  core.EventStore
 	// register that convert the Data []byte to correct type
-	register *register
+	register *internal.Register
 	// serializer / deserializer
 	Serializer   SerializeFunc
 	Deserializer DeserializeFunc
@@ -60,7 +62,7 @@ func NewEventRepository(eventStore core.EventStore) *EventRepository {
 		eventStream:  NewEventStream(),
 		Serializer:   json.Marshal,
 		Deserializer: json.Unmarshal,
-		register:     newRegister(),
+		register:     internal.NewRegister(),
 	}
 }
 
@@ -140,7 +142,7 @@ func (r *EventRepository) GetWithContext(ctx context.Context, id string, a aggre
 	}
 
 	root := a.Root()
-	aggregateType := aggregateType(a)
+	aggregateType := internal.AggregateType(a)
 	// fetch events after the current version of the aggregate that could be fetched from the snapshot store
 	eventIterator, err := r.eventStore.Get(ctx, id, aggregateType, core.Version(root.aggregateVersion))
 	if err != nil {
