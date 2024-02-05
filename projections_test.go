@@ -36,7 +36,6 @@ func Test(t *testing.T) {
 			GlobalVersion: core.Version(e.GlobalVersion()),
 			Timestamp:     e.Timestamp(),
 			Data:          data,
-			Metadata:      []byte{},
 		})
 	}
 
@@ -49,7 +48,10 @@ func Test(t *testing.T) {
 			name = e.Name
 		}
 	})
-	proj.Run()
+	err = proj.Run()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if name != person.Name {
 		t.Fatalf("expected %q was %q", person.Name, name)

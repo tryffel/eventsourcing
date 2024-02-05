@@ -1,8 +1,6 @@
 package eventsourcing
 
 import (
-	"time"
-
 	"github.com/hallgren/eventsourcing/core"
 	"github.com/hallgren/eventsourcing/internal"
 )
@@ -51,20 +49,18 @@ func (p *Projections) Close() {
 	}
 }
 
-func (p *Projection) Run() {
+func (p *Projection) Run() error {
 	iterator, err := p.getF()
 	if err != nil {
-		return
+		return err
 	}
 
 	defer iterator.Close()
 
-	work := false
 	for iterator.Next() {
-		work = true
 		event, err := iterator.Value()
 		if err != nil {
-			return
+			return err
 		}
 
 		// TODO: is only registered events of interest?
@@ -76,22 +72,19 @@ func (p *Projection) Run() {
 		data := f()
 		err = p.projections.deserializer(event.Data, &data)
 		if err != nil {
-			return
+			return err
 		}
-		/*
-			metadata := make(map[string]interface{})
-			err = p.projections.deserializer(event.Metadata, &metadata)
-			if err != nil {
-				return
-			}
-		*/
+
+		metadata := make(map[string]interface{})
+		err = p.projections.deserializer(event.Metadata, &metadata)
+		if err != nil {
+			return err
+		}
+
 		e := NewEvent(event, data, nil)
 		p.callbackF(e)
 	}
-	// sleep if no more events to iterate
-	if !work {
-		time.Sleep(time.Second * 10)
-	}
+	return nil
 }
 
 func (p *Projection) Close() {
