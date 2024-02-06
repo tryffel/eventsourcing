@@ -50,6 +50,8 @@ func (p *Projections) Close() {
 	}
 }
 
+// Run runs the projection forever until the context is cancelled
+// When there is no more events to concume it sleeps the pace and run again.
 func (p *Projection) Run(ctx context.Context, pace time.Duration) error {
 	timer := time.NewTimer(0)
 	for {
@@ -75,6 +77,7 @@ func (p *Projection) Run(ctx context.Context, pace time.Duration) error {
 	}
 }
 
+// RunOnce runs the fetch method one time and returns
 func (p *Projection) RunOnce() (error, bool) {
 	iterator, err := p.getF()
 	if err != nil {

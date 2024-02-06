@@ -46,14 +46,18 @@ func TestRunOnce(t *testing.T) {
 	register.Register(&Person{})
 
 	projectedName := ""
-	sourceName := "kalle"
 
-	err := createBornEvent(es, sourceName)
+	err := createBornEvent(es, "kalle")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// run projection
+	err = createBornEvent(es, "anka")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// run projection one event at each run
 	p := eventsourcing.NewProjections(register, json.Unmarshal)
 	proj := p.Add(es.All(0, 1), func(event eventsourcing.Event) {
 		switch e := event.Data().(type) {
@@ -62,6 +66,7 @@ func TestRunOnce(t *testing.T) {
 		}
 	})
 
+	// should set projectedName to kalle
 	err, work := proj.RunOnce()
 	if err != nil {
 		t.Fatal(err)
@@ -70,8 +75,21 @@ func TestRunOnce(t *testing.T) {
 	if !work {
 		t.Fatal("there was no work to do")
 	}
-	if projectedName != sourceName {
-		t.Fatalf("expected %q was %q", sourceName, projectedName)
+	if projectedName != "kalle" {
+		t.Fatalf("expected %q was %q", "kalle", projectedName)
+	}
+
+	// should set the projected name to anka
+	err, work = proj.RunOnce()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !work {
+		t.Fatal("there was no work to do")
+	}
+	if projectedName != "anka" {
+		t.Fatalf("expected %q was %q", "anka", projectedName)
 	}
 }
 
