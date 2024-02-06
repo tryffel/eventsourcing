@@ -2,6 +2,8 @@ package eventsourcing
 
 import (
 	"context"
+	"errors"
+	"sync"
 	"time"
 
 	"github.com/hallgren/eventsourcing/core"
@@ -12,12 +14,15 @@ type Projection struct {
 	getF        func() (core.Iterator, error)
 	callbackF   func(e Event)
 	projections *Projections
+	pace        time.Duration
 }
 
 type Projections struct {
 	register     *internal.Register // used to map the event types
 	deserializer DeserializeFunc
 	projections  []Projection
+	cancelF      context.CancelFunc
+	wg           sync.WaitGroup
 }
 
 func NewProjections(register *internal.Register, deserializer DeserializeFunc) *Projections {
@@ -25,29 +30,46 @@ func NewProjections(register *internal.Register, deserializer DeserializeFunc) *
 		register:     register,
 		deserializer: deserializer,
 		projections:  make([]Projection, 0),
+		cancelF:      func() {},
 	}
 }
 
-func (p *Projections) Add(getF func() (core.Iterator, error), callbackF func(e Event)) *Projection {
+func (p *Projections) Add(getF func() (core.Iterator, error), callbackF func(e Event), pace time.Duration) *Projection {
 	projection := Projection{
 		getF:        getF,
 		callbackF:   callbackF,
 		projections: p,
+		pace:        pace,
 	}
 	p.projections = append(p.projections, projection)
 	return &projection
 }
 
-// Start starts all projections
-func (p *Projections) Start() {
+// Start starts all projections and return a channel to notify if a errors is returned from a projection
+func (p *Projections) Start() chan error {
+	errChan := make(chan error)
+	ctx, cancel := context.WithCancel(context.Background())
+	p.cancelF = cancel
 
+	p.wg.Add(len(p.projections))
+	for _, projection := range p.projections {
+		go func(proj Projection) {
+			err := proj.Run(ctx, proj.pace)
+			if !errors.Is(err, context.Canceled) {
+				errChan <- err
+			}
+			p.wg.Done()
+		}(projection)
+	}
+	return errChan
 }
 
-// Close closes all projections
+// Close terminate all running projections
 func (p *Projections) Close() {
-	for _, projection := range p.projections {
-		projection.Close()
-	}
+	p.cancelF()
+
+	// return when all projections has terminated
+	p.wg.Wait()
 }
 
 // Run runs the projection forever until the context is cancelled

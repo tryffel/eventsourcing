@@ -64,7 +64,7 @@ func TestRunOnce(t *testing.T) {
 		case *Born:
 			projectedName = e.Name
 		}
-	})
+	}, time.Second)
 
 	// should set projectedName to kalle
 	err, work := proj.RunOnce()
@@ -114,7 +114,7 @@ func TestRun(t *testing.T) {
 		case *Born:
 			projectedName = e.Name
 		}
-	})
+	}, time.Second)
 
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Second))
 	defer cancel()
@@ -128,4 +128,24 @@ func TestRun(t *testing.T) {
 	if projectedName != sourceName {
 		t.Fatalf("expected %q was %q", sourceName, projectedName)
 	}
+}
+
+func TestCloseNoneStarted(t *testing.T) {
+	p := eventsourcing.NewProjections(nil, json.Unmarshal)
+	p.Close()
+}
+
+func TestStartMultipleProjections(t *testing.T) {
+	// setup
+	es := memory.Create()
+	register := internal.NewRegister()
+
+	// run projection
+	p := eventsourcing.NewProjections(register, json.Unmarshal)
+	p.Add(es.GlobalEvents(0, 1), func(event eventsourcing.Event) {}, time.Second)
+	p.Add(es.GlobalEvents(0, 1), func(event eventsourcing.Event) {}, time.Second)
+	p.Add(es.GlobalEvents(0, 1), func(event eventsourcing.Event) {}, time.Second)
+
+	p.Start()
+	p.Close()
 }
