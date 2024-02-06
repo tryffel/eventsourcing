@@ -59,7 +59,7 @@ func TestRunOnce(t *testing.T) {
 
 	// run projection one event at each run
 	p := eventsourcing.NewProjections(register, json.Unmarshal)
-	proj := p.Add(es.All(0, 1), func(event eventsourcing.Event) {
+	proj := p.Add(es.GlobalEvents(0, 1), func(event eventsourcing.Event) {
 		switch e := event.Data().(type) {
 		case *Born:
 			projectedName = e.Name
@@ -109,7 +109,7 @@ func TestRun(t *testing.T) {
 
 	// run projection
 	p := eventsourcing.NewProjections(register, json.Unmarshal)
-	proj := p.Add(es.All(0, 1), func(event eventsourcing.Event) {
+	proj := p.Add(es.GlobalEvents(0, 1), func(event eventsourcing.Event) {
 		switch e := event.Data().(type) {
 		case *Born:
 			projectedName = e.Name
