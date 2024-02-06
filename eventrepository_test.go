@@ -233,6 +233,8 @@ func TestEventChainDoesNotHang(t *testing.T) {
 		eventChan <- e
 	}
 
+	var eventChanErr error
+
 	// for every AgedOnYear create a new person and make it grow one year older
 	go func() {
 		defer close(doneChan)
