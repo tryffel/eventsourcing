@@ -2,6 +2,7 @@ package eventsourcing
 
 import (
 	"context"
+	"time"
 
 	"github.com/hallgren/eventsourcing/core"
 	"github.com/hallgren/eventsourcing/internal"
@@ -49,32 +50,45 @@ func (p *Projections) Close() {
 	}
 }
 
-func (p *Projection) Run(ctx context.Context) error {
+func (p *Projection) Run(ctx context.Context, pace time.Duration) error {
+	timer := time.NewTimer(0)
 	for {
 		select {
 		case <-ctx.Done():
+			if !timer.Stop() {
+				<-timer.C
+			}
 			return ctx.Err()
-		default:
-			err := p.RunOnce()
+		case <-timer.C:
+			err, work := p.RunOnce()
 			if err != nil {
 				return err
 			}
+			// work to do run again ASAP
+			if work {
+				timer.Reset(0)
+				continue
+			}
 		}
+		// no work
+		timer.Reset(pace)
 	}
 }
 
-func (p *Projection) RunOnce() error {
+func (p *Projection) RunOnce() (error, bool) {
 	iterator, err := p.getF()
 	if err != nil {
-		return err
+		return err, false
 	}
 
 	defer iterator.Close()
 
+	var work bool
 	for iterator.Next() {
+		work = true
 		event, err := iterator.Value()
 		if err != nil {
-			return err
+			return err, false
 		}
 
 		// TODO: is only registered events of interest?
@@ -86,21 +100,21 @@ func (p *Projection) RunOnce() error {
 		data := f()
 		err = p.projections.deserializer(event.Data, &data)
 		if err != nil {
-			return err
+			return err, false
 		}
 
 		metadata := make(map[string]interface{})
 		if event.Metadata != nil {
 			err = p.projections.deserializer(event.Metadata, &metadata)
 			if err != nil {
-				return err
+				return err, false
 			}
 		}
 
 		e := NewEvent(event, data, metadata)
 		p.callbackF(e)
 	}
-	return nil
+	return nil, work
 }
 
 func (p *Projection) Close() {

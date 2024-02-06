@@ -1,8 +1,11 @@
 package eventsourcing_test
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"testing"
+	"time"
 
 	"github.com/hallgren/eventsourcing"
 	"github.com/hallgren/eventsourcing/core"
@@ -59,8 +62,48 @@ func TestRunOnce(t *testing.T) {
 		}
 	})
 
-	err = proj.RunOnce()
+	err, work := proj.RunOnce()
 	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !work {
+		t.Fatal("there was no work to do")
+	}
+	if projectedName != sourceName {
+		t.Fatalf("expected %q was %q", sourceName, projectedName)
+	}
+}
+
+func TestRun(t *testing.T) {
+	// setup
+	es := memory.Create()
+	register := internal.NewRegister()
+	register.Register(&Person{})
+
+	projectedName := ""
+	sourceName := "kalle"
+
+	err := createBornEvent(es, sourceName)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// run projection
+	p := eventsourcing.NewProjections(register, json.Unmarshal)
+	proj := p.Add(es.All(0, 1), func(event eventsourcing.Event) {
+		switch e := event.Data().(type) {
+		case *Born:
+			projectedName = e.Name
+		}
+	})
+
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Second))
+	defer cancel()
+
+	// will run once then sleep 10 seconds
+	err = proj.Run(ctx, time.Second*10)
+	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatal(err)
 	}
 

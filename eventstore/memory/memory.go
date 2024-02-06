@@ -88,8 +88,8 @@ func aggregateKey(aggregateType, aggregateID string) string {
 	return aggregateType + "_" + aggregateID
 }
 
-// GlobalEvents will return count events in order globally from the start posistion
-func (e *Memory) GlobalEvents(start core.Version, count uint64) ([]core.Event, error) {
+// globalEvents will return count events in order globally from the start posistion
+func (e *Memory) globalEvents(start core.Version, count uint64) ([]core.Event, error) {
 	var events []core.Event
 	// make sure its thread safe
 	e.lock.Lock()
@@ -111,13 +111,18 @@ func (e *Memory) GlobalEvents(start core.Version, count uint64) ([]core.Event, e
 func (m *Memory) All(start core.Version, count uint64) func() (core.Iterator, error) {
 	return func() (core.Iterator, error) {
 		// Get 10 at a time
-		events, err := m.GlobalEvents(start, count)
+		events, err := m.globalEvents(start, count)
 		if err != nil {
 			return nil, err
 		}
 
-		// next time the function is called is start from the last fetched event
-		start = events[0].GlobalVersion
+		// no events to fetch
+		if len(events) == 0 {
+			return core.ZeroIterator{}, nil
+		}
+
+		// next time the function is called it start from the last fetched event +1
+		start = events[len(events)-1].GlobalVersion + 1
 		return &iterator{events: events}, nil
 	}
 }
