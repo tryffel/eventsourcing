@@ -83,7 +83,7 @@ func (e *Memory) Get(ctx context.Context, id string, aggregateType string, after
 // Close does nothing
 func (e *Memory) Close() {}
 
-// aggregateKey generate a aggregate key to store events against from aggregateType and aggregateID
+// aggregateKey generates a key to store events against from aggregateType and aggregateID
 func aggregateKey(aggregateType, aggregateID string) string {
 	return aggregateType + "_" + aggregateID
 }
