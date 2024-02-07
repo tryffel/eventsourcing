@@ -88,46 +88,12 @@ func (s *SQL) Get(ctx context.Context, id string, aggregateType string, afterVer
 	return &iterator{rows: rows}, nil
 }
 
-// GlobalEvents return count events in order globally from the start posistion
-func (s *SQL) GlobalEvents(start, count uint64) ([]core.Event, error) {
+// GlobalEvents
+func (s *SQL) GlobalEvents(start core.Version, count uint64) (core.Iterator, error) {
 	selectStm := `Select seq, id, version, reason, type, timestamp, data, metadata from events where seq >= ? order by seq asc LIMIT ?`
 	rows, err := s.db.Query(selectStm, start, count)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	return s.eventsFromRows(rows)
-}
-
-func (s *SQL) eventsFromRows(rows *sql.Rows) ([]core.Event, error) {
-	var events []core.Event
-	for rows.Next() {
-		var globalVersion core.Version
-		var version core.Version
-		var id, reason, typ, timestamp string
-		var data, metadata []byte
-		if err := rows.Scan(&globalVersion, &id, &version, &reason, &typ, &timestamp, &data, &metadata); err != nil {
-			return nil, err
-		}
-
-		t, err := time.Parse(time.RFC3339, timestamp)
-		if err != nil {
-			return nil, err
-		}
-
-		events = append(events, core.Event{
-			AggregateID:   id,
-			Version:       version,
-			GlobalVersion: globalVersion,
-			AggregateType: typ,
-			Timestamp:     t,
-			Data:          data,
-			Metadata:      metadata,
-			Reason:        reason,
-		})
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return events, nil
+	return &iterator{rows: rows}, nil
 }
