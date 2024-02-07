@@ -65,10 +65,10 @@ func TestRunOnce(t *testing.T) {
 			projectedName = e.Name
 		}
 		return nil
-	}, time.Second)
+	}, time.Second, true)
 
 	// should set projectedName to kalle
-	err, work := proj.RunOnce(true)
+	err, work := proj.RunOnce()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,7 +81,7 @@ func TestRunOnce(t *testing.T) {
 	}
 
 	// should set the projected name to anka
-	err, work = proj.RunOnce(true)
+	err, work = proj.RunOnce()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -116,13 +116,13 @@ func TestRun(t *testing.T) {
 			projectedName = e.Name
 		}
 		return nil
-	}, time.Second)
+	}, time.Second, true)
 
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Second))
 	defer cancel()
 
 	// will run once then sleep 10 seconds
-	err = proj.Run(ctx, time.Second*10, true)
+	err = proj.Run(ctx)
 	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatal(err)
 	}
@@ -149,9 +149,9 @@ func TestStartMultipleProjections(t *testing.T) {
 
 	// run projection
 	p := eventsourcing.NewProjections(register, json.Unmarshal)
-	p.Add(es.GlobalEvents(0, 1), callbackF, time.Second)
-	p.Add(es.GlobalEvents(0, 1), callbackF, time.Second)
-	p.Add(es.GlobalEvents(0, 1), callbackF, time.Second)
+	p.Add(es.GlobalEvents(0, 1), callbackF, time.Second, true)
+	p.Add(es.GlobalEvents(0, 1), callbackF, time.Second, true)
+	p.Add(es.GlobalEvents(0, 1), callbackF, time.Second, true)
 
 	p.Start()
 	p.Close()
@@ -178,7 +178,7 @@ func TestErrorFromCallback(t *testing.T) {
 
 	// run projection
 	p := eventsourcing.NewProjections(register, json.Unmarshal)
-	p.Add(es.GlobalEvents(0, 1), callbackF, time.Second)
+	p.Add(es.GlobalEvents(0, 1), callbackF, time.Second, true)
 
 	errChan := p.Start()
 	defer p.Close()
