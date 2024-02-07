@@ -156,3 +156,38 @@ func TestStartMultipleProjections(t *testing.T) {
 	p.Start()
 	p.Close()
 }
+
+func TestErrorFromCallback(t *testing.T) {
+	// setup
+	es := memory.Create()
+	register := internal.NewRegister()
+	register.Register(&Person{})
+
+	err := createBornEvent(es, "kalle")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// define application error that can be returned from the callback function
+	var ErrApplication = errors.New("application error")
+
+	// callback that handles the events
+	callbackF := func(event eventsourcing.Event) error {
+		return ErrApplication
+	}
+
+	// run projection
+	p := eventsourcing.NewProjections(register, json.Unmarshal)
+	p.Add(es.GlobalEvents(0, 1), callbackF, time.Second)
+
+	errChan := p.Start()
+	defer p.Close()
+
+	err = <-errChan
+	if !errors.Is(err, ErrApplication) {
+		if err != nil {
+			t.Fatalf("expected application error but got %s", err.Error())
+		}
+		t.Fatal("got none error expected ErrApplication")
+	}
+}

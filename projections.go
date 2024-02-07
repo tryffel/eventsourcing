@@ -140,7 +140,10 @@ func (p *Projection) RunOnce() (error, bool) {
 		}
 
 		e := NewEvent(event, data, metadata)
-		p.callbackF(e)
+		err = p.callbackF(e)
+		if err != nil {
+			return err, false
+		}
 	}
 	return nil, work
 }
