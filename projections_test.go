@@ -10,7 +10,6 @@ import (
 	"github.com/hallgren/eventsourcing"
 	"github.com/hallgren/eventsourcing/core"
 	"github.com/hallgren/eventsourcing/eventstore/memory"
-	"github.com/hallgren/eventsourcing/internal"
 )
 
 func createBornEvent(es *memory.Memory, name string) error {
@@ -42,7 +41,7 @@ func createBornEvent(es *memory.Memory, name string) error {
 func TestRunOnce(t *testing.T) {
 	// setup
 	es := memory.Create()
-	register := internal.NewRegister()
+	register := eventsourcing.NewRegister()
 	register.Register(&Person{})
 
 	projectedName := ""
@@ -97,7 +96,7 @@ func TestRunOnce(t *testing.T) {
 func TestRun(t *testing.T) {
 	// setup
 	es := memory.Create()
-	register := internal.NewRegister()
+	register := eventsourcing.NewRegister()
 	register.Register(&Person{})
 
 	projectedName := ""
@@ -140,7 +139,7 @@ func TestCloseNoneStartedProjection(t *testing.T) {
 func TestStartMultipleProjections(t *testing.T) {
 	// setup
 	es := memory.Create()
-	register := internal.NewRegister()
+	register := eventsourcing.NewRegister()
 
 	// callback that handles the events
 	callbackF := func(event eventsourcing.Event) error {
@@ -160,7 +159,7 @@ func TestStartMultipleProjections(t *testing.T) {
 func TestErrorFromCallback(t *testing.T) {
 	// setup
 	es := memory.Create()
-	register := internal.NewRegister()
+	register := eventsourcing.NewRegister()
 	register.Register(&Person{})
 
 	err := createBornEvent(es, "kalle")
@@ -195,7 +194,7 @@ func TestErrorFromCallback(t *testing.T) {
 func TestStrict(t *testing.T) {
 	// setup
 	es := memory.Create()
-	register := internal.NewRegister()
+	register := eventsourcing.NewRegister()
 
 	// We do not register the Person aggregate with the Born event attached
 	err := createBornEvent(es, "kalle")

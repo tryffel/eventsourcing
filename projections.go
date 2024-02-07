@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/hallgren/eventsourcing/core"
-	"github.com/hallgren/eventsourcing/internal"
 )
 
 type fetchFunc func() (core.Iterator, error)
@@ -22,14 +21,14 @@ type Projection struct {
 }
 
 type Projections struct {
-	register     *internal.Register // used to map the event types
+	register     *Register // used to map the event types
 	deserializer DeserializeFunc
 	projections  []Projection
 	cancelF      context.CancelFunc
 	wg           sync.WaitGroup
 }
 
-func NewProjections(register *internal.Register, deserializer DeserializeFunc) *Projections {
+func NewProjections(register *Register, deserializer DeserializeFunc) *Projections {
 	return &Projections{
 		register:     register,
 		deserializer: deserializer,
