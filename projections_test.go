@@ -68,7 +68,7 @@ func TestRunOnce(t *testing.T) {
 	}, time.Second)
 
 	// should set projectedName to kalle
-	err, work := proj.RunOnce()
+	err, work := proj.RunOnce(true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,7 +81,7 @@ func TestRunOnce(t *testing.T) {
 	}
 
 	// should set the projected name to anka
-	err, work = proj.RunOnce()
+	err, work = proj.RunOnce(true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -122,7 +122,7 @@ func TestRun(t *testing.T) {
 	defer cancel()
 
 	// will run once then sleep 10 seconds
-	err = proj.Run(ctx, time.Second*10)
+	err = proj.Run(ctx, time.Second*10, true)
 	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatal(err)
 	}
@@ -132,7 +132,7 @@ func TestRun(t *testing.T) {
 	}
 }
 
-func TestCloseNoneStarted(t *testing.T) {
+func TestCloseNoneStartedProjection(t *testing.T) {
 	p := eventsourcing.NewProjections(nil, json.Unmarshal)
 	p.Close()
 }

@@ -50,6 +50,14 @@ func (p *Projections) Add(fetchF fetchFunc, callbackF callbackFunc, pace time.Du
 
 // Start starts all projections and return a channel to notify if a errors is returned from a projection
 func (p *Projections) Start() chan error {
+	return p.start(false)
+}
+
+func (p *Projections) StartStrict() chan error {
+	return p.start(true)
+}
+
+func (p *Projections) start(strict bool) chan error {
 	errChan := make(chan error)
 	ctx, cancel := context.WithCancel(context.Background())
 	p.cancelF = cancel
@@ -57,7 +65,7 @@ func (p *Projections) Start() chan error {
 	p.wg.Add(len(p.projections))
 	for _, projection := range p.projections {
 		go func(proj Projection) {
-			err := proj.Run(ctx, proj.pace)
+			err := proj.Run(ctx, proj.pace, strict)
 			if !errors.Is(err, context.Canceled) {
 				errChan <- err
 			}
@@ -77,7 +85,7 @@ func (p *Projections) Close() {
 
 // Run runs the projection forever until the context is cancelled
 // When there is no more events to concume it sleeps the pace and run again.
-func (p *Projection) Run(ctx context.Context, pace time.Duration) error {
+func (p *Projection) Run(ctx context.Context, pace time.Duration, strict bool) error {
 	timer := time.NewTimer(0)
 	for {
 		select {
@@ -87,7 +95,7 @@ func (p *Projection) Run(ctx context.Context, pace time.Duration) error {
 			}
 			return ctx.Err()
 		case <-timer.C:
-			err, work := p.RunOnce()
+			err, work := p.RunOnce(strict)
 			if err != nil {
 				return err
 			}
@@ -103,7 +111,7 @@ func (p *Projection) Run(ctx context.Context, pace time.Duration) error {
 }
 
 // RunOnce runs the fetch method one time and returns
-func (p *Projection) RunOnce() (error, bool) {
+func (p *Projection) RunOnce(strict bool) (error, bool) {
 	iterator, err := p.fetchF()
 	if err != nil {
 		return err, false
@@ -122,6 +130,9 @@ func (p *Projection) RunOnce() (error, bool) {
 		// TODO: is only registered events of interest?
 		f, found := p.projections.register.EventRegistered(event)
 		if !found {
+			if strict {
+				return ErrEventNotRegistered, false
+			}
 			continue
 		}
 
@@ -146,8 +157,4 @@ func (p *Projection) RunOnce() (error, bool) {
 		}
 	}
 	return nil, work
-}
-
-func (p *Projection) Close() {
-	// TODO stop the projection
 }
