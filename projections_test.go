@@ -59,11 +59,12 @@ func TestRunOnce(t *testing.T) {
 
 	// run projection one event at each run
 	p := eventsourcing.NewProjections(register, json.Unmarshal)
-	proj := p.Add(es.GlobalEvents(0, 1), func(event eventsourcing.Event) {
+	proj := p.Add(es.GlobalEvents(0, 1), func(event eventsourcing.Event) error {
 		switch e := event.Data().(type) {
 		case *Born:
 			projectedName = e.Name
 		}
+		return nil
 	}, time.Second)
 
 	// should set projectedName to kalle
@@ -109,11 +110,12 @@ func TestRun(t *testing.T) {
 
 	// run projection
 	p := eventsourcing.NewProjections(register, json.Unmarshal)
-	proj := p.Add(es.GlobalEvents(0, 1), func(event eventsourcing.Event) {
+	proj := p.Add(es.GlobalEvents(0, 1), func(event eventsourcing.Event) error {
 		switch e := event.Data().(type) {
 		case *Born:
 			projectedName = e.Name
 		}
+		return nil
 	}, time.Second)
 
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Second))
@@ -142,9 +144,9 @@ func TestStartMultipleProjections(t *testing.T) {
 
 	// run projection
 	p := eventsourcing.NewProjections(register, json.Unmarshal)
-	p.Add(es.GlobalEvents(0, 1), func(event eventsourcing.Event) {}, time.Second)
-	p.Add(es.GlobalEvents(0, 1), func(event eventsourcing.Event) {}, time.Second)
-	p.Add(es.GlobalEvents(0, 1), func(event eventsourcing.Event) {}, time.Second)
+	p.Add(es.GlobalEvents(0, 1), func(event eventsourcing.Event) error { return nil }, time.Second)
+	p.Add(es.GlobalEvents(0, 1), func(event eventsourcing.Event) error { return nil }, time.Second)
+	p.Add(es.GlobalEvents(0, 1), func(event eventsourcing.Event) error { return nil }, time.Second)
 
 	p.Start()
 	p.Close()

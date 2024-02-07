@@ -12,7 +12,7 @@ import (
 
 type Projection struct {
 	getF        func() (core.Iterator, error)
-	callbackF   func(e Event)
+	callbackF   func(e Event) error
 	projections *Projections
 	pace        time.Duration
 }
@@ -34,7 +34,7 @@ func NewProjections(register *internal.Register, deserializer DeserializeFunc) *
 	}
 }
 
-func (p *Projections) Add(getF func() (core.Iterator, error), callbackF func(e Event), pace time.Duration) *Projection {
+func (p *Projections) Add(getF func() (core.Iterator, error), callbackF func(e Event) error, pace time.Duration) *Projection {
 	projection := Projection{
 		getF:        getF,
 		callbackF:   callbackF,
