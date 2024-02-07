@@ -197,6 +197,7 @@ func TestStrict(t *testing.T) {
 	es := memory.Create()
 	register := internal.NewRegister()
 
+	// We do not register the Person aggregate with the Born event attached
 	err := createBornEvent(es, "kalle")
 	if err != nil {
 		t.Fatal(err)
