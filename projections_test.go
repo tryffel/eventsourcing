@@ -142,11 +142,16 @@ func TestStartMultipleProjections(t *testing.T) {
 	es := memory.Create()
 	register := internal.NewRegister()
 
+	// callback that handles the events
+	callbackF := func(event eventsourcing.Event) error {
+		return nil
+	}
+
 	// run projection
 	p := eventsourcing.NewProjections(register, json.Unmarshal)
-	p.Add(es.GlobalEvents(0, 1), func(event eventsourcing.Event) error { return nil }, time.Second)
-	p.Add(es.GlobalEvents(0, 1), func(event eventsourcing.Event) error { return nil }, time.Second)
-	p.Add(es.GlobalEvents(0, 1), func(event eventsourcing.Event) error { return nil }, time.Second)
+	p.Add(es.GlobalEvents(0, 1), callbackF, time.Second)
+	p.Add(es.GlobalEvents(0, 1), callbackF, time.Second)
+	p.Add(es.GlobalEvents(0, 1), callbackF, time.Second)
 
 	p.Start()
 	p.Close()

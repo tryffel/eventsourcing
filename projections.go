@@ -10,9 +10,12 @@ import (
 	"github.com/hallgren/eventsourcing/internal"
 )
 
+type fetchFunc func() (core.Iterator, error)
+type callbackFunc func(e Event) error
+
 type Projection struct {
-	getF        func() (core.Iterator, error)
-	callbackF   func(e Event) error
+	fetchF      fetchFunc
+	callbackF   callbackFunc
 	projections *Projections
 	pace        time.Duration
 }
@@ -34,9 +37,9 @@ func NewProjections(register *internal.Register, deserializer DeserializeFunc) *
 	}
 }
 
-func (p *Projections) Add(getF func() (core.Iterator, error), callbackF func(e Event) error, pace time.Duration) *Projection {
+func (p *Projections) Add(fetchF fetchFunc, callbackF callbackFunc, pace time.Duration) *Projection {
 	projection := Projection{
-		getF:        getF,
+		fetchF:      fetchF,
 		callbackF:   callbackF,
 		projections: p,
 		pace:        pace,
@@ -101,7 +104,7 @@ func (p *Projection) Run(ctx context.Context, pace time.Duration) error {
 
 // RunOnce runs the fetch method one time and returns
 func (p *Projection) RunOnce() (error, bool) {
-	iterator, err := p.getF()
+	iterator, err := p.fetchF()
 	if err != nil {
 		return err, false
 	}
