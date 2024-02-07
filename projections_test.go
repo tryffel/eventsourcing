@@ -191,3 +191,25 @@ func TestErrorFromCallback(t *testing.T) {
 		t.Fatal("got none error expected ErrApplication")
 	}
 }
+
+func TestStrict(t *testing.T) {
+	// setup
+	es := memory.Create()
+	register := internal.NewRegister()
+
+	err := createBornEvent(es, "kalle")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// run projection
+	p := eventsourcing.NewProjections(register, json.Unmarshal)
+	proj := p.Add(es.GlobalEvents(0, 1), func(event eventsourcing.Event) error {
+		return nil
+	}, time.Second, true)
+
+	err, _ = proj.RunOnce()
+	if !errors.Is(err, eventsourcing.ErrEventNotRegistered) {
+		t.Fatalf("expected ErrEventNotRegistered got %q", err.Error())
+	}
+}
