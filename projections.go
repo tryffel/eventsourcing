@@ -12,18 +12,18 @@ import (
 type fetchFunc func() (core.Iterator, error)
 type callbackFunc func(e Event) error
 
-type Projection struct {
+type Runner struct {
 	fetchF      fetchFunc
 	callbackF   callbackFunc
 	projections *Projections
-	pace        time.Duration
-	strict      bool
+	Pace        time.Duration
+	Strict      bool
 }
 
 type Projections struct {
 	register     *Register // used to map the event types
 	deserializer DeserializeFunc
-	projections  []Projection
+	runners      []Runner
 	cancelF      context.CancelFunc
 	wg           sync.WaitGroup
 }
@@ -32,20 +32,20 @@ func NewProjections(register *Register, deserializer DeserializeFunc) *Projectio
 	return &Projections{
 		register:     register,
 		deserializer: deserializer,
-		projections:  make([]Projection, 0),
+		runners:      make([]Runner, 0),
 		cancelF:      func() {},
 	}
 }
 
-func (p *Projections) Add(fetchF fetchFunc, callbackF callbackFunc, pace time.Duration, strict bool) *Projection {
-	projection := Projection{
+func (p *Projections) NewRunner(fetchF fetchFunc, callbackF callbackFunc) *Runner {
+	projection := Runner{
 		fetchF:      fetchF,
 		callbackF:   callbackF,
 		projections: p,
-		pace:        pace,
-		strict:      strict,
+		Pace:        time.Second * 10, // Default pace 10 seconds
+		Strict:      true,             // Default strict is active
 	}
-	p.projections = append(p.projections, projection)
+	p.runners = append(p.runners, projection)
 	return &projection
 }
 
@@ -55,9 +55,9 @@ func (p *Projections) Start() chan error {
 	ctx, cancel := context.WithCancel(context.Background())
 	p.cancelF = cancel
 
-	p.wg.Add(len(p.projections))
-	for _, projection := range p.projections {
-		go func(proj Projection) {
+	p.wg.Add(len(p.runners))
+	for _, projection := range p.runners {
+		go func(proj Runner) {
 			err := proj.Run(ctx)
 			if !errors.Is(err, context.Canceled) {
 				errChan <- err
@@ -78,7 +78,7 @@ func (p *Projections) Close() {
 
 // Run runs the projection forever until the context is cancelled
 // When there is no more events to concume it sleeps the pace and run again.
-func (p *Projection) Run(ctx context.Context) error {
+func (p *Runner) Run(ctx context.Context) error {
 	timer := time.NewTimer(0)
 	for {
 		select {
@@ -88,23 +88,23 @@ func (p *Projection) Run(ctx context.Context) error {
 			}
 			return ctx.Err()
 		case <-timer.C:
-			err, work := p.RunOnce()
+			err, ran := p.RunOnce()
 			if err != nil {
 				return err
 			}
-			// work to do run again ASAP
-			if work {
+			// it ran last round, run again ASAP.
+			if ran {
 				timer.Reset(0)
 				continue
 			}
 		}
-		// no work
-		timer.Reset(p.pace)
+		// no more running for a while
+		timer.Reset(p.Pace)
 	}
 }
 
 // RunOnce runs the fetch method one time and returns
-func (p *Projection) RunOnce() (error, bool) {
+func (p *Runner) RunOnce() (error, bool) {
 	iterator, err := p.fetchF()
 	if err != nil {
 		return err, false
@@ -112,9 +112,10 @@ func (p *Projection) RunOnce() (error, bool) {
 
 	defer iterator.Close()
 
-	var work bool
+	// ran indicate if there were events to fetch
+	var ran bool
 	for iterator.Next() {
-		work = true
+		ran = true
 		event, err := iterator.Value()
 		if err != nil {
 			return err, false
@@ -123,7 +124,7 @@ func (p *Projection) RunOnce() (error, bool) {
 		// TODO: is only registered events of interest?
 		f, found := p.projections.register.EventRegistered(event)
 		if !found {
-			if p.strict {
+			if p.Strict {
 				return ErrEventNotRegistered, false
 			}
 			continue
@@ -149,5 +150,5 @@ func (p *Projection) RunOnce() (error, bool) {
 			return err, false
 		}
 	}
-	return nil, work
+	return nil, ran
 }

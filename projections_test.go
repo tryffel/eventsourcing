@@ -58,13 +58,13 @@ func TestRunOnce(t *testing.T) {
 
 	// run projection one event at each run
 	p := eventsourcing.NewProjections(register, json.Unmarshal)
-	proj := p.Add(es.GlobalEvents(0, 1), func(event eventsourcing.Event) error {
+	proj := p.NewRunner(es.GlobalEvents(0, 1), func(event eventsourcing.Event) error {
 		switch e := event.Data().(type) {
 		case *Born:
 			projectedName = e.Name
 		}
 		return nil
-	}, time.Second, true)
+	})
 
 	// should set projectedName to kalle
 	err, work := proj.RunOnce()
@@ -109,13 +109,13 @@ func TestRun(t *testing.T) {
 
 	// run projection
 	p := eventsourcing.NewProjections(register, json.Unmarshal)
-	proj := p.Add(es.GlobalEvents(0, 1), func(event eventsourcing.Event) error {
+	proj := p.NewRunner(es.GlobalEvents(0, 1), func(event eventsourcing.Event) error {
 		switch e := event.Data().(type) {
 		case *Born:
 			projectedName = e.Name
 		}
 		return nil
-	}, time.Second, true)
+	})
 
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Second))
 	defer cancel()
@@ -148,9 +148,9 @@ func TestStartMultipleProjections(t *testing.T) {
 
 	// run projection
 	p := eventsourcing.NewProjections(register, json.Unmarshal)
-	p.Add(es.GlobalEvents(0, 1), callbackF, time.Second, true)
-	p.Add(es.GlobalEvents(0, 1), callbackF, time.Second, true)
-	p.Add(es.GlobalEvents(0, 1), callbackF, time.Second, true)
+	p.NewRunner(es.GlobalEvents(0, 1), callbackF)
+	p.NewRunner(es.GlobalEvents(0, 1), callbackF)
+	p.NewRunner(es.GlobalEvents(0, 1), callbackF)
 
 	p.Start()
 	p.Close()
@@ -177,7 +177,7 @@ func TestErrorFromCallback(t *testing.T) {
 
 	// run projection
 	p := eventsourcing.NewProjections(register, json.Unmarshal)
-	p.Add(es.GlobalEvents(0, 1), callbackF, time.Second, true)
+	p.NewRunner(es.GlobalEvents(0, 1), callbackF)
 
 	errChan := p.Start()
 	defer p.Close()
@@ -204,9 +204,9 @@ func TestStrict(t *testing.T) {
 
 	// run projection
 	p := eventsourcing.NewProjections(register, json.Unmarshal)
-	proj := p.Add(es.GlobalEvents(0, 1), func(event eventsourcing.Event) error {
+	proj := p.NewRunner(es.GlobalEvents(0, 1), func(event eventsourcing.Event) error {
 		return nil
-	}, time.Second, true)
+	})
 
 	err, _ = proj.RunOnce()
 	if !errors.Is(err, eventsourcing.ErrEventNotRegistered) {
