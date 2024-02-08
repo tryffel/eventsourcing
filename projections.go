@@ -56,14 +56,14 @@ func (p *Projections) Start() chan error {
 	p.cancelF = cancel
 
 	p.wg.Add(len(p.runners))
-	for _, projection := range p.runners {
-		go func(proj Runner) {
-			err := proj.Run(ctx)
+	for _, runner := range p.runners {
+		go func(runner Runner) {
+			err := runner.Run(ctx)
 			if !errors.Is(err, context.Canceled) {
 				errChan <- err
 			}
 			p.wg.Done()
-		}(projection)
+		}(runner)
 	}
 	return errChan
 }
@@ -74,6 +74,36 @@ func (p *Projections) Close() {
 
 	// return when all projections has terminated
 	p.wg.Wait()
+}
+
+// Race runs the runners to the end of the there events streams.
+// Can be used on a stale event stream with now more events comming in.
+func (p *Projections) Race(cancelOnError bool) error {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	wg := sync.WaitGroup{}
+	wg.Add(len(p.runners))
+
+	var e error
+	var lock sync.Mutex
+
+	for _, runner := range p.runners {
+		go func(runner Runner) {
+			defer wg.Done()
+			err := runner.RunToEnd(ctx)
+			if err != nil {
+				if !errors.Is(err, context.Canceled) && cancelOnError {
+					lock.Lock()
+					e = err
+					lock.Unlock()
+					cancel()
+				}
+			}
+		}(runner)
+	}
+	wg.Wait()
+	return e
 }
 
 // Run runs the projection forever until the context is cancelled
@@ -88,18 +118,32 @@ func (r *Runner) Run(ctx context.Context) error {
 			}
 			return ctx.Err()
 		case <-timer.C:
+			err := r.RunToEnd(ctx)
+			if err != nil {
+				return err
+			}
+		}
+		// rest
+		timer.Reset(r.Pace)
+	}
+}
+
+// RunToEnd runs until it reach the end of the event stream
+func (r *Runner) RunToEnd(ctx context.Context) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
 			err, ran := r.RunOnce()
 			if err != nil {
 				return err
 			}
-			// it ran last round, run again ASAP.
-			if ran {
-				timer.Reset(0)
-				continue
+			// hit the end of the event stream
+			if !ran {
+				return nil
 			}
 		}
-		// no more running for a while
-		timer.Reset(r.Pace)
 	}
 }
 

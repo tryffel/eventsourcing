@@ -12,10 +12,14 @@ import (
 	"github.com/hallgren/eventsourcing/eventstore/memory"
 )
 
-func createBornEvent(es *memory.Memory, name string) error {
+func createPersonEvent(es *memory.Memory, name string, age int) error {
 	person, err := CreatePerson(name)
 	if err != nil {
 		return err
+	}
+
+	for i := 0; i < age; i++ {
+		person.GrowOlder()
 	}
 
 	events := make([]core.Event, 0)
@@ -46,12 +50,12 @@ func TestRunOnce(t *testing.T) {
 
 	projectedName := ""
 
-	err := createBornEvent(es, "kalle")
+	err := createPersonEvent(es, "kalle", 1)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = createBornEvent(es, "anka")
+	err = createPersonEvent(es, "anka", 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,7 +106,7 @@ func TestRun(t *testing.T) {
 	projectedName := ""
 	sourceName := "kalle"
 
-	err := createBornEvent(es, sourceName)
+	err := createPersonEvent(es, sourceName, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -162,7 +166,7 @@ func TestErrorFromCallback(t *testing.T) {
 	register := eventsourcing.NewRegister()
 	register.Register(&Person{})
 
-	err := createBornEvent(es, "kalle")
+	err := createPersonEvent(es, "kalle", 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -197,7 +201,7 @@ func TestStrict(t *testing.T) {
 	register := eventsourcing.NewRegister()
 
 	// We do not register the Person aggregate with the Born event attached
-	err := createBornEvent(es, "kalle")
+	err := createPersonEvent(es, "kalle", 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -211,5 +215,41 @@ func TestStrict(t *testing.T) {
 	err, _ = proj.RunOnce()
 	if !errors.Is(err, eventsourcing.ErrEventNotRegistered) {
 		t.Fatalf("expected ErrEventNotRegistered got %q", err.Error())
+	}
+}
+
+func TestRace(t *testing.T) {
+	// setup
+	es := memory.Create()
+	register := eventsourcing.NewRegister()
+	register.Register(&Person{})
+
+	err := createPersonEvent(es, "kalle", 50)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// callback that handles the events
+	callbackF := func(event eventsourcing.Event) error {
+		time.Sleep(time.Millisecond * 10)
+		return nil
+	}
+
+	applicationErr := errors.New("an error")
+
+	// run projection
+	p := eventsourcing.NewProjections(register, json.Unmarshal)
+	p.NewRunner(es.GlobalEvents(0, 1), callbackF)
+	p.NewRunner(es.GlobalEvents(0, 1), func(e eventsourcing.Event) error {
+		// fail on event 40
+		if e.GlobalVersion() == 40 {
+			return applicationErr
+		}
+		return nil
+	})
+
+	err = p.Race(true)
+	if !errors.Is(err, applicationErr) {
+		t.Fatal(err)
 	}
 }
