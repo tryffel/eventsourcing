@@ -78,7 +78,7 @@ func (p *Projections) Close() {
 
 // Run runs the projection forever until the context is cancelled
 // When there is no more events to concume it sleeps the pace and run again.
-func (p *Runner) Run(ctx context.Context) error {
+func (r *Runner) Run(ctx context.Context) error {
 	timer := time.NewTimer(0)
 	for {
 		select {
@@ -88,7 +88,7 @@ func (p *Runner) Run(ctx context.Context) error {
 			}
 			return ctx.Err()
 		case <-timer.C:
-			err, ran := p.RunOnce()
+			err, ran := r.RunOnce()
 			if err != nil {
 				return err
 			}
@@ -99,13 +99,13 @@ func (p *Runner) Run(ctx context.Context) error {
 			}
 		}
 		// no more running for a while
-		timer.Reset(p.Pace)
+		timer.Reset(r.Pace)
 	}
 }
 
 // RunOnce runs the fetch method one time and returns
-func (p *Runner) RunOnce() (error, bool) {
-	iterator, err := p.fetchF()
+func (r *Runner) RunOnce() (error, bool) {
+	iterator, err := r.fetchF()
 	if err != nil {
 		return err, false
 	}
@@ -122,30 +122,30 @@ func (p *Runner) RunOnce() (error, bool) {
 		}
 
 		// TODO: is only registered events of interest?
-		f, found := p.projections.register.EventRegistered(event)
+		f, found := r.projections.register.EventRegistered(event)
 		if !found {
-			if p.Strict {
+			if r.Strict {
 				return ErrEventNotRegistered, false
 			}
 			continue
 		}
 
 		data := f()
-		err = p.projections.deserializer(event.Data, &data)
+		err = r.projections.deserializer(event.Data, &data)
 		if err != nil {
 			return err, false
 		}
 
 		metadata := make(map[string]interface{})
 		if event.Metadata != nil {
-			err = p.projections.deserializer(event.Metadata, &metadata)
+			err = r.projections.deserializer(event.Metadata, &metadata)
 			if err != nil {
 				return err, false
 			}
 		}
 
 		e := NewEvent(event, data, metadata)
-		err = p.callbackF(e)
+		err = r.callbackF(e)
 		if err != nil {
 			return err, false
 		}
