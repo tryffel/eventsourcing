@@ -50,12 +50,12 @@ func TestRunOnce(t *testing.T) {
 
 	projectedName := ""
 
-	err := createPersonEvent(es, "kalle", 1)
+	err := createPersonEvent(es, "kalle", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = createPersonEvent(es, "anka", 1)
+	err = createPersonEvent(es, "anka", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
