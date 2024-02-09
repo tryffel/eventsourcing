@@ -3,6 +3,7 @@ package eventsourcing
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -18,6 +19,7 @@ type Runner struct {
 	projections *Projections
 	Pace        time.Duration
 	Strict      bool
+	Name        string
 }
 
 type Projections struct {
@@ -42,8 +44,9 @@ func (p *Projections) NewRunner(fetchF fetchFunc, callbackF callbackFunc) *Runne
 		fetchF:      fetchF,
 		callbackF:   callbackF,
 		projections: p,
-		Pace:        time.Second * 10, // Default pace 10 seconds
-		Strict:      true,             // Default strict is active
+		Pace:        time.Second * 10,                  // Default pace 10 seconds
+		Strict:      true,                              // Default strict is active
+		Name:        fmt.Sprintf("%d", len(p.runners)), // Deafult to the index in the runner slice
 	}
 	p.runners = append(p.runners, projection)
 	return &projection
@@ -76,34 +79,46 @@ func (p *Projections) Close() {
 	p.wg.Wait()
 }
 
+type RaceResult struct {
+	Error      error
+	RunnerName string
+}
+
 // Race runs the runners to the end of the there events streams.
 // Can be used on a stale event stream with now more events comming in.
-func (p *Projections) Race(cancelOnError bool) error {
+func (p *Projections) Race(cancelOnError bool) ([]RaceResult, error) {
+	result := make([]RaceResult, len(p.runners))
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	wg := sync.WaitGroup{}
 	wg.Add(len(p.runners))
 
-	var e error
 	var lock sync.Mutex
+	var e error
 
-	for _, runner := range p.runners {
-		go func(runner Runner) {
+	for i, runner := range p.runners {
+		go func(runner Runner, index int) {
 			defer wg.Done()
 			err := runner.RunToEnd(ctx)
 			if err != nil {
 				if !errors.Is(err, context.Canceled) && cancelOnError {
+					cancel()
+
+					// set the causing error
 					lock.Lock()
 					e = err
 					lock.Unlock()
-					cancel()
+
 				}
+				lock.Lock()
+				result[index] = RaceResult{Error: err, RunnerName: runner.Name}
+				lock.Unlock()
 			}
-		}(runner)
+		}(runner, i)
 	}
 	wg.Wait()
-	return e
+	return result, e
 }
 
 // Run runs the projection forever until the context is cancelled

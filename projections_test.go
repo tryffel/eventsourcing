@@ -248,8 +248,18 @@ func TestRace(t *testing.T) {
 		return nil
 	})
 
-	err = p.Race(true)
+	result, err := p.Race(true)
 	if !errors.Is(err, applicationErr) {
-		t.Fatal(err)
+		t.Fatalf("expected applicationErr got %s", err.Error())
+	}
+
+	// runner 0 should have a context.Canceled error
+	if !errors.Is(result[0].Error, context.Canceled) {
+		t.Fatalf("expected runner %q to have err 'context.Canceled' got %s", result[0].RunnerName, result[0].Error.Error())
+	}
+
+	// runner 1 should have a applicationErr error
+	if !errors.Is(result[1].Error, applicationErr) {
+		t.Fatalf("expected runner %q to have err 'applicationErr' got %s", result[1].RunnerName, result[1].Error.Error())
 	}
 }
