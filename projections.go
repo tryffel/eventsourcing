@@ -17,6 +17,7 @@ type Runner struct {
 	fetchF      fetchFunc
 	callbackF   callbackFunc
 	projections *Projections
+	event       Event
 	Pace        time.Duration
 	Strict      bool
 	Name        string
@@ -82,12 +83,14 @@ func (p *Projections) Close() {
 type RaceResult struct {
 	Error      error
 	RunnerName string
+	Event      Event
 }
 
 // Race runs the runners to the end of the there events streams.
 // Can be used on a stale event stream with now more events comming in.
 func (p *Projections) Race(cancelOnError bool) ([]RaceResult, error) {
 	result := make([]RaceResult, len(p.runners))
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -95,7 +98,7 @@ func (p *Projections) Race(cancelOnError bool) ([]RaceResult, error) {
 	wg.Add(len(p.runners))
 
 	var lock sync.Mutex
-	var e error
+	var causingErr error
 
 	for i, runner := range p.runners {
 		go func(runner Runner, index int) {
@@ -105,20 +108,18 @@ func (p *Projections) Race(cancelOnError bool) ([]RaceResult, error) {
 				if !errors.Is(err, context.Canceled) && cancelOnError {
 					cancel()
 
-					// set the causing error
 					lock.Lock()
-					e = err
+					causingErr = err
 					lock.Unlock()
-
 				}
-				lock.Lock()
-				result[index] = RaceResult{Error: err, RunnerName: runner.Name}
-				lock.Unlock()
 			}
+			lock.Lock()
+			result[index] = RaceResult{Error: err, RunnerName: runner.Name, Event: runner.event}
+			lock.Unlock()
 		}(runner, i)
 	}
 	wg.Wait()
-	return result, e
+	return result, causingErr
 }
 
 // Run runs the projection forever until the context is cancelled
@@ -204,6 +205,9 @@ func (r *Runner) RunOnce() (error, bool) {
 		}
 
 		e := NewEvent(event, data, metadata)
+		// keep a reference to the event currently processing
+
+		r.event = e
 		err = r.callbackF(e)
 		if err != nil {
 			return err, false

@@ -231,7 +231,7 @@ func TestRace(t *testing.T) {
 
 	// callback that handles the events
 	callbackF := func(event eventsourcing.Event) error {
-		time.Sleep(time.Millisecond * 10)
+		time.Sleep(time.Millisecond)
 		return nil
 	}
 
@@ -241,25 +241,32 @@ func TestRace(t *testing.T) {
 	p := eventsourcing.NewProjections(register, json.Unmarshal)
 	p.NewRunner(es.GlobalEvents(0, 1), callbackF)
 	p.NewRunner(es.GlobalEvents(0, 1), func(e eventsourcing.Event) error {
-		// fail on event 40
-		if e.GlobalVersion() == 40 {
+		time.Sleep(time.Millisecond)
+		if e.GlobalVersion() == 30 {
 			return applicationErr
 		}
 		return nil
 	})
 
 	result, err := p.Race(true)
+
+	// causing err should be applicationErr
 	if !errors.Is(err, applicationErr) {
-		t.Fatalf("expected applicationErr got %s", err.Error())
+		t.Fatalf("expected causing error to be applicationErr got %s", err.Error())
 	}
 
 	// runner 0 should have a context.Canceled error
 	if !errors.Is(result[0].Error, context.Canceled) {
-		t.Fatalf("expected runner %q to have err 'context.Canceled' got %s", result[0].RunnerName, result[0].Error.Error())
+		t.Fatalf("expected runner %q to have err 'context.Canceled' got %v", result[0].RunnerName, result[0].Error)
 	}
 
 	// runner 1 should have a applicationErr error
 	if !errors.Is(result[1].Error, applicationErr) {
 		t.Fatalf("expected runner %q to have err 'applicationErr' got %s", result[1].RunnerName, result[1].Error.Error())
+	}
+
+	// runner 1 should have halted on event with GlobalVersion 30
+	if result[1].Event.GlobalVersion() != 30 {
+		t.Fatalf("expected runner 1 Event.GlobalVersion() to be 30 but was %d", result[1].Event.GlobalVersion())
 	}
 }
