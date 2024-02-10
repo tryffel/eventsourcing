@@ -10,9 +10,10 @@ import (
 )
 
 type iterator struct {
-	tx     *bbolt.Tx
-	cursor *bbolt.Cursor
-	value  []byte
+	tx            *bbolt.Tx
+	cursor        *bbolt.Cursor
+	startPosition uint64
+	value         []byte
 }
 
 // Close closes the iterator
@@ -22,7 +23,12 @@ func (i *iterator) Close() {
 
 func (i *iterator) Next() bool {
 	var value []byte
-	_, value = i.cursor.Next()
+	// first time Next is called
+	if i.value == nil {
+		_, value = i.cursor.Seek(itob(i.startPosition))
+	} else {
+		_, value = i.cursor.Next()
+	}
 
 	if value == nil {
 		return false

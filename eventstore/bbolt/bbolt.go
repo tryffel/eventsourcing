@@ -163,16 +163,19 @@ func (e *BBolt) Save(events []core.Event) error {
 
 // Get aggregate events
 func (e *BBolt) Get(ctx context.Context, id string, aggregateType string, afterVersion core.Version) (core.Iterator, error) {
-	bucketName := aggregateKey(aggregateType, id)
-
 	tx, err := e.db.Begin(false)
 	if err != nil {
 		return nil, err
 	}
-	evBucket := tx.Bucket([]byte(bucketName))
-	cursor := evBucket.Cursor()
-	cursor.Seek(itob(uint64(afterVersion)))
-	return &iterator{tx: tx, cursor: cursor}, nil
+	bucketName := aggregateKey(aggregateType, id)
+	bucket := tx.Bucket([]byte(bucketName))
+	if bucket == nil {
+		tx.Rollback()
+		// no aggregate event stream
+		return core.ZeroIterator{}, nil
+	}
+	cursor := bucket.Cursor()
+	return &iterator{tx: tx, cursor: cursor, startPosition: uint64(afterVersion + 1)}, nil
 
 }
 
@@ -185,8 +188,7 @@ func (e *BBolt) GlobalEvents(start, count uint64) (core.Iterator, error) {
 
 	globalBucket := tx.Bucket([]byte(globalEventOrderBucketName))
 	cursor := globalBucket.Cursor()
-	cursor.Seek(itob(start))
-	cursor.Prev()
+
 	return &iterator{tx: tx, cursor: cursor}, nil
 }
 
