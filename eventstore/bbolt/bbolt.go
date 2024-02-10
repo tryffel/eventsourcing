@@ -169,47 +169,25 @@ func (e *BBolt) Get(ctx context.Context, id string, aggregateType string, afterV
 	if err != nil {
 		return nil, err
 	}
-	firstEvent := afterVersion + 1
-	i := iterator{tx: tx, bucketName: bucketName, firstEventIndex: uint64(firstEvent)}
-	return &i, nil
+	evBucket := tx.Bucket([]byte(bucketName))
+	cursor := evBucket.Cursor()
+	cursor.Seek(itob(uint64(afterVersion)))
+	return &iterator{tx: tx, cursor: cursor}, nil
 
 }
 
 // GlobalEvents return count events in order globally from the start posistion
-func (e *BBolt) GlobalEvents(start, count uint64) ([]core.Event, error) {
-	var events []core.Event
+func (e *BBolt) GlobalEvents(start, count uint64) (core.Iterator, error) {
 	tx, err := e.db.Begin(false)
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback()
 
 	globalBucket := tx.Bucket([]byte(globalEventOrderBucketName))
 	cursor := globalBucket.Cursor()
-	for k, obj := cursor.Seek(itob(start)); k != nil; k, obj = cursor.Next() {
-		bEvent := boltEvent{}
-		err := json.Unmarshal(obj, &bEvent)
-		if err != nil {
-			return nil, errors.New(fmt.Sprintf("could not deserialize event, %v", err))
-		}
-
-		event := core.Event{
-			AggregateID:   bEvent.AggregateID,
-			AggregateType: bEvent.AggregateType,
-			Version:       core.Version(bEvent.Version),
-			GlobalVersion: core.Version(bEvent.GlobalVersion),
-			Timestamp:     bEvent.Timestamp,
-			Metadata:      bEvent.Metadata,
-			Data:          bEvent.Data,
-			Reason:        bEvent.Reason,
-		}
-		events = append(events, event)
-		count--
-		if count == 0 {
-			break
-		}
-	}
-	return events, nil
+	cursor.Seek(itob(start))
+	cursor.Prev()
+	return &iterator{tx: tx, cursor: cursor}, nil
 }
 
 // Close closes the event stream and the underlying database
