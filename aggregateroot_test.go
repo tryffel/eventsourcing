@@ -76,6 +76,13 @@ func (person *Person) Transition(event eventsourcing.Event) {
 	}
 }
 
+func TestPersonWithNoEvents(t *testing.T) {
+	person := Person{}
+	if person.Version() != 0 {
+		t.Fatalf("should have version 0 had %d", person.Version())
+	}
+}
+
 func TestCreateNewPerson(t *testing.T) {
 	timeBefore := time.Now().UTC()
 	person, err := CreatePerson("kalle")
