@@ -10,11 +10,10 @@ import (
 )
 
 type iterator struct {
-	tx              *bbolt.Tx
-	bucketName      string
-	firstEventIndex uint64
-	cursor          *bbolt.Cursor
-	value           []byte
+	tx            *bbolt.Tx
+	cursor        *bbolt.Cursor
+	startPosition []byte
+	value         []byte
 }
 
 // Close closes the iterator
@@ -23,24 +22,16 @@ func (i *iterator) Close() {
 }
 
 func (i *iterator) Next() bool {
-	var value []byte
-	if i.cursor == nil {
-		bucket := i.tx.Bucket([]byte(i.bucketName))
-		if bucket == nil {
-			return false
-		}
-		i.cursor = bucket.Cursor()
-		_, value = i.cursor.Seek(itob(i.firstEventIndex))
-		if value == nil {
-			return false
-		}
+	// first time Next is called go to the start position
+	if i.value == nil {
+		_, i.value = i.cursor.Seek(i.startPosition)
 	} else {
-		_, value = i.cursor.Next()
+		_, i.value = i.cursor.Next()
 	}
-	if value == nil {
+
+	if i.value == nil {
 		return false
 	}
-	i.value = value
 	return true
 }
 
