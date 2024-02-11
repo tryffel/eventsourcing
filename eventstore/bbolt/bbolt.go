@@ -74,7 +74,7 @@ func (e *BBolt) Save(events []core.Event) error {
 	// get bucket name from first event
 	aggregateType := events[0].AggregateType
 	aggregateID := events[0].AggregateID
-	bucketName := aggregateKey(aggregateType, aggregateID)
+	bucketRef := bucketRef(aggregateType, aggregateID)
 
 	tx, err := e.db.Begin(true)
 	if err != nil {
@@ -82,14 +82,14 @@ func (e *BBolt) Save(events []core.Event) error {
 	}
 	defer tx.Rollback()
 
-	evBucket := tx.Bucket([]byte(bucketName))
+	evBucket := tx.Bucket(bucketRef)
 	if evBucket == nil {
 		// Ensure that we have a bucket named events_aggregateType_aggregateID for the given aggregate
-		err = e.createBucket([]byte(bucketName), tx)
+		err = e.createBucket(bucketRef, tx)
 		if err != nil {
 			return errors.New("could not create aggregate events bucket")
 		}
-		evBucket = tx.Bucket([]byte(bucketName))
+		evBucket = tx.Bucket(bucketRef)
 	}
 
 	currentVersion := uint64(0)
@@ -118,7 +118,7 @@ func (e *BBolt) Save(events []core.Event) error {
 	for i, event := range events {
 		sequence, err := evBucket.NextSequence()
 		if err != nil {
-			return errors.New(fmt.Sprintf("could not get sequence for %#v", bucketName))
+			return errors.New(fmt.Sprintf("could not get sequence for %#v", string(bucketRef)))
 		}
 
 		// We need to establish a global event order that spans over all buckets. This is so that we can be
@@ -152,7 +152,7 @@ func (e *BBolt) Save(events []core.Event) error {
 		}
 		err = globalBucket.Put(itob(globalSequence), value)
 		if err != nil {
-			return errors.New(fmt.Sprintf("could not save global sequence pointer for %#v", bucketName))
+			return errors.New(fmt.Sprintf("could not save global sequence pointer for %#v", string(bucketRef)))
 		}
 
 		// override the event in the slice exposing the GlobalVersion to the caller
@@ -167,8 +167,7 @@ func (e *BBolt) Get(ctx context.Context, id string, aggregateType string, afterV
 	if err != nil {
 		return nil, err
 	}
-	bucketName := aggregateKey(aggregateType, id)
-	bucket := tx.Bucket([]byte(bucketName))
+	bucket := tx.Bucket(bucketRef(aggregateType, id))
 	if bucket == nil {
 		tx.Rollback()
 		// no aggregate event stream
@@ -207,9 +206,9 @@ func (e *BBolt) createBucket(bucketName []byte, tx *bbolt.Tx) error {
 
 }
 
-// aggregateKey generate a aggregate key to store events against from aggregateType and aggregateID
-func aggregateKey(aggregateType, aggregateID string) string {
-	return aggregateType + "_" + aggregateID
+// bucketRef return the reference where to store and fetch events
+func bucketRef(aggregateType, aggregateID string) []byte {
+	return []byte(aggregateType + "_" + aggregateID)
 }
 
 // calculate the correct posiotion and convert to bbolt key type
