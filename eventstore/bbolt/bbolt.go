@@ -16,13 +16,6 @@ const (
 	globalEventOrderBucketName = "global_event_order"
 )
 
-// itob returns an 8-byte big endian representation of v.
-func itob(v uint64) []byte {
-	b := make([]byte, 8)
-	binary.BigEndian.PutUint64(b, v)
-	return b
-}
-
 // BBolt is the eventstore handler
 type BBolt struct {
 	db *bbolt.DB // The bbolt db where we store everything
@@ -175,7 +168,6 @@ func (e *BBolt) Get(ctx context.Context, id string, aggregateType string, afterV
 	}
 	cursor := bucket.Cursor()
 	return &iterator{tx: tx, cursor: cursor, startPosition: position(afterVersion)}, nil
-
 }
 
 // GlobalEvents return count events in order globally from the start posistion
@@ -197,13 +189,12 @@ func (e *BBolt) Close() error {
 }
 
 // CreateBucket creates a bucket
-func (e *BBolt) createBucket(bucketName []byte, tx *bbolt.Tx) error {
+func (e *BBolt) createBucket(bucketRef []byte, tx *bbolt.Tx) error {
 	// Ensure that we have a bucket named event_type for the given type
-	if _, err := tx.CreateBucketIfNotExists([]byte(bucketName)); err != nil {
-		return errors.New(fmt.Sprintf("could not create bucket for %s: %s", bucketName, err))
+	if _, err := tx.CreateBucketIfNotExists(bucketRef); err != nil {
+		return errors.New(fmt.Sprintf("could not create bucket for %s: %s", string(bucketRef), err))
 	}
 	return nil
-
 }
 
 // bucketRef return the reference where to store and fetch events
@@ -214,4 +205,11 @@ func bucketRef(aggregateType, aggregateID string) []byte {
 // calculate the correct posiotion and convert to bbolt key type
 func position(p core.Version) []byte {
 	return itob(uint64(p + 1))
+}
+
+// itob returns an 8-byte big endian representation of v.
+func itob(v uint64) []byte {
+	b := make([]byte, 8)
+	binary.BigEndian.PutUint64(b, v)
+	return b
 }
