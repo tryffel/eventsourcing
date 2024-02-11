@@ -175,12 +175,12 @@ func (e *BBolt) Get(ctx context.Context, id string, aggregateType string, afterV
 		return core.ZeroIterator{}, nil
 	}
 	cursor := bucket.Cursor()
-	return &iterator{tx: tx, cursor: cursor, startPosition: uint64(afterVersion + 1)}, nil
+	return &iterator{tx: tx, cursor: cursor, startPosition: position(afterVersion)}, nil
 
 }
 
 // GlobalEvents return count events in order globally from the start posistion
-func (e *BBolt) GlobalEvents(start, count uint64) (core.Iterator, error) {
+func (e *BBolt) GlobalEvents(start uint64) (core.Iterator, error) {
 	tx, err := e.db.Begin(false)
 	if err != nil {
 		return nil, err
@@ -189,7 +189,7 @@ func (e *BBolt) GlobalEvents(start, count uint64) (core.Iterator, error) {
 	globalBucket := tx.Bucket([]byte(globalEventOrderBucketName))
 	cursor := globalBucket.Cursor()
 
-	return &iterator{tx: tx, cursor: cursor}, nil
+	return &iterator{tx: tx, cursor: cursor, startPosition: position(core.Version(start))}, nil
 }
 
 // Close closes the event stream and the underlying database
@@ -210,4 +210,9 @@ func (e *BBolt) createBucket(bucketName []byte, tx *bbolt.Tx) error {
 // aggregateKey generate a aggregate key to store events against from aggregateType and aggregateID
 func aggregateKey(aggregateType, aggregateID string) string {
 	return aggregateType + "_" + aggregateID
+}
+
+// calculate the correct posiotion and convert to bbolt key type
+func position(p core.Version) []byte {
+	return itob(uint64(p + 1))
 }

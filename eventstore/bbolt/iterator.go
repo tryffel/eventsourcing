@@ -12,7 +12,7 @@ import (
 type iterator struct {
 	tx            *bbolt.Tx
 	cursor        *bbolt.Cursor
-	startPosition uint64
+	startPosition []byte
 	value         []byte
 }
 
@@ -22,18 +22,16 @@ func (i *iterator) Close() {
 }
 
 func (i *iterator) Next() bool {
-	var value []byte
-	// first time Next is called
+	// first time Next is called go to the start position
 	if i.value == nil {
-		_, value = i.cursor.Seek(itob(i.startPosition))
+		_, i.value = i.cursor.Seek(i.startPosition)
 	} else {
-		_, value = i.cursor.Next()
+		_, i.value = i.cursor.Next()
 	}
 
-	if value == nil {
+	if i.value == nil {
 		return false
 	}
-	i.value = value
 	return true
 }
 
