@@ -90,7 +90,7 @@ func aggregateKey(aggregateType, aggregateID string) string {
 
 // globalEvents will return count events in order globally from the start posistion
 func (e *Memory) globalEvents(start core.Version, count uint64) ([]core.Event, error) {
-	var events []core.Event
+	events := make([]core.Event, 0, count)
 	// make sure its thread safe
 	e.lock.Lock()
 	defer e.lock.Unlock()
