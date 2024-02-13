@@ -3,7 +3,6 @@ package eventsourcing
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 
@@ -12,6 +11,11 @@ import (
 
 type fetchFunc func() (core.Iterator, error)
 type callbackFunc func(e Event) error
+
+type Projections struct {
+	register     *Register // used to map the event types
+	deserializer DeserializeFunc
+}
 
 type Runner struct {
 	fetchF      fetchFunc
@@ -23,20 +27,59 @@ type Runner struct {
 	Name        string
 }
 
-type Projections struct {
-	register     *Register // used to map the event types
-	deserializer DeserializeFunc
-	runners      []Runner
-	cancelF      context.CancelFunc
-	wg           sync.WaitGroup
+// RunningGroup runs runners concurrently
+type RunningGroup struct {
+	projections *Projections
+	runners     []*Runner
+	cancelF     context.CancelFunc
+	wg          sync.WaitGroup
+}
+
+// RunningGroup runs a group of runners concurrently
+func (p *Projections) RunningGroup() *RunningGroup {
+	return &RunningGroup{
+		projections: p,
+		runners:     make([]*Runner, 0),
+		cancelF:     func() {},
+	}
+}
+
+// Add adds runners to the running group
+func (g *RunningGroup) Add(runner ...*Runner) {
+	g.runners = append(g.runners, runner...)
+}
+
+// Start starts all runners in the running group and return a channel to notify if a errors is returned from a runner
+func (g *RunningGroup) Start() chan error {
+	errChan := make(chan error)
+	ctx, cancel := context.WithCancel(context.Background())
+	g.cancelF = cancel
+
+	g.wg.Add(len(g.runners))
+	for _, runner := range g.runners {
+		go func(runner *Runner) {
+			err := runner.Run(ctx)
+			if !errors.Is(err, context.Canceled) {
+				errChan <- err
+			}
+			g.wg.Done()
+		}(runner)
+	}
+	return errChan
+}
+
+// Close terminate all runners in the running group
+func (p *RunningGroup) Close() {
+	p.cancelF()
+
+	// return when all runners has terminated
+	p.wg.Wait()
 }
 
 func NewProjections(register *Register, deserializer DeserializeFunc) *Projections {
 	return &Projections{
 		register:     register,
 		deserializer: deserializer,
-		runners:      make([]Runner, 0),
-		cancelF:      func() {},
 	}
 }
 
@@ -45,39 +88,10 @@ func (p *Projections) NewRunner(fetchF fetchFunc, callbackF callbackFunc) *Runne
 		fetchF:      fetchF,
 		callbackF:   callbackF,
 		projections: p,
-		Pace:        time.Second * 10,                  // Default pace 10 seconds
-		Strict:      true,                              // Default strict is active
-		Name:        fmt.Sprintf("%d", len(p.runners)), // Deafult to the index in the runner slice
+		Pace:        time.Second * 10, // Default pace 10 seconds
+		Strict:      true,             // Default strict is active
 	}
-	p.runners = append(p.runners, projection)
 	return &projection
-}
-
-// Start starts all projections and return a channel to notify if a errors is returned from a projection
-func (p *Projections) Start() chan error {
-	errChan := make(chan error)
-	ctx, cancel := context.WithCancel(context.Background())
-	p.cancelF = cancel
-
-	p.wg.Add(len(p.runners))
-	for _, runner := range p.runners {
-		go func(runner Runner) {
-			err := runner.Run(ctx)
-			if !errors.Is(err, context.Canceled) {
-				errChan <- err
-			}
-			p.wg.Done()
-		}(runner)
-	}
-	return errChan
-}
-
-// Close terminate all running projections
-func (p *Projections) Close() {
-	p.cancelF()
-
-	// return when all projections has terminated
-	p.wg.Wait()
 }
 
 type RaceResult struct {
@@ -88,20 +102,20 @@ type RaceResult struct {
 
 // Race runs the runners to the end of the there events streams.
 // Can be used on a stale event stream with now more events comming in.
-func (p *Projections) Race(cancelOnError bool) ([]RaceResult, error) {
-	result := make([]RaceResult, len(p.runners))
+func (g *RunningGroup) Race(cancelOnError bool) ([]RaceResult, error) {
+	result := make([]RaceResult, len(g.runners))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	wg := sync.WaitGroup{}
-	wg.Add(len(p.runners))
+	wg.Add(len(g.runners))
 
 	var lock sync.Mutex
 	var causingErr error
 
-	for i, runner := range p.runners {
-		go func(runner Runner, index int) {
+	for i, runner := range g.runners {
+		go func(runner *Runner, index int) {
 			defer wg.Done()
 			err := runner.RunToEnd(ctx)
 			if err != nil {

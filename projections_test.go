@@ -135,9 +135,10 @@ func TestRun(t *testing.T) {
 	}
 }
 
-func TestCloseNoneStartedProjection(t *testing.T) {
+func TestCloseNoneStartedRunnerGroup(t *testing.T) {
 	p := eventsourcing.NewProjections(nil, json.Unmarshal)
-	p.Close()
+	g := p.RunningGroup()
+	g.Close()
 }
 
 func TestStartMultipleProjections(t *testing.T) {
@@ -152,12 +153,14 @@ func TestStartMultipleProjections(t *testing.T) {
 
 	// run projection
 	p := eventsourcing.NewProjections(register, json.Unmarshal)
-	p.NewRunner(es.GlobalEvents(0, 1), callbackF)
-	p.NewRunner(es.GlobalEvents(0, 1), callbackF)
-	p.NewRunner(es.GlobalEvents(0, 1), callbackF)
+	r1 := p.NewRunner(es.GlobalEvents(0, 1), callbackF)
+	r2 := p.NewRunner(es.GlobalEvents(0, 1), callbackF)
+	r3 := p.NewRunner(es.GlobalEvents(0, 1), callbackF)
 
-	p.Start()
-	p.Close()
+	g := p.RunningGroup()
+	g.Add(r1, r2, r3)
+	g.Start()
+	g.Close()
 }
 
 func TestErrorFromCallback(t *testing.T) {
@@ -181,10 +184,13 @@ func TestErrorFromCallback(t *testing.T) {
 
 	// run projection
 	p := eventsourcing.NewProjections(register, json.Unmarshal)
-	p.NewRunner(es.GlobalEvents(0, 1), callbackF)
+	r := p.NewRunner(es.GlobalEvents(0, 1), callbackF)
 
-	errChan := p.Start()
-	defer p.Close()
+	g := p.RunningGroup()
+	g.Add(r)
+
+	errChan := g.Start()
+	defer g.Close()
 
 	err = <-errChan
 	if !errors.Is(err, ErrApplication) {
@@ -239,8 +245,8 @@ func TestRace(t *testing.T) {
 
 	// run projection
 	p := eventsourcing.NewProjections(register, json.Unmarshal)
-	p.NewRunner(es.GlobalEvents(0, 1), callbackF)
-	p.NewRunner(es.GlobalEvents(0, 1), func(e eventsourcing.Event) error {
+	r1 := p.NewRunner(es.GlobalEvents(0, 1), callbackF)
+	r2 := p.NewRunner(es.GlobalEvents(0, 1), func(e eventsourcing.Event) error {
 		time.Sleep(time.Millisecond)
 		if e.GlobalVersion() == 30 {
 			return applicationErr
@@ -248,7 +254,10 @@ func TestRace(t *testing.T) {
 		return nil
 	})
 
-	result, err := p.Race(true)
+	g := p.RunningGroup()
+	g.Add(r1, r2)
+
+	result, err := g.Race(true)
 
 	// causing err should be applicationErr
 	if !errors.Is(err, applicationErr) {
