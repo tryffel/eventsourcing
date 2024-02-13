@@ -71,7 +71,7 @@ func TestRunOnce(t *testing.T) {
 	})
 
 	// should set projectedName to kalle
-	err, work := proj.RunOnce()
+	work, err := proj.RunOnce()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,7 +84,7 @@ func TestRunOnce(t *testing.T) {
 	}
 
 	// should set the projected name to anka
-	err, work = proj.RunOnce()
+	work, err = proj.RunOnce()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -218,7 +218,7 @@ func TestStrict(t *testing.T) {
 		return nil
 	})
 
-	err, _ = proj.RunOnce()
+	_, err = proj.RunOnce()
 	if !errors.Is(err, eventsourcing.ErrEventNotRegistered) {
 		t.Fatalf("expected ErrEventNotRegistered got %q", err.Error())
 	}

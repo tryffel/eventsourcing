@@ -88,7 +88,7 @@ func (r *Runner) RunToEnd(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
-			err, ran := r.RunOnce()
+			ran, err := r.RunOnce()
 			if err != nil {
 				return err
 			}
@@ -101,10 +101,10 @@ func (r *Runner) RunToEnd(ctx context.Context) error {
 }
 
 // RunOnce runs the fetch method one time and returns
-func (r *Runner) RunOnce() (error, bool) {
+func (r *Runner) RunOnce() (bool, error) {
 	iterator, err := r.fetchF()
 	if err != nil {
-		return err, false
+		return false, err
 	}
 
 	defer iterator.Close()
@@ -115,14 +115,14 @@ func (r *Runner) RunOnce() (error, bool) {
 		ran = true
 		event, err := iterator.Value()
 		if err != nil {
-			return err, false
+			return false, err
 		}
 
 		// TODO: is only registered events of interest?
 		f, found := r.projections.register.EventRegistered(event)
 		if !found {
 			if r.Strict {
-				return ErrEventNotRegistered, false
+				return false, fmt.Errorf("event not registered aggregate type: %s, reason: %s, %w", event.AggregateType, event.Reason, ErrEventNotRegistered)
 			}
 			continue
 		}
@@ -130,14 +130,14 @@ func (r *Runner) RunOnce() (error, bool) {
 		data := f()
 		err = r.projections.deserializer(event.Data, &data)
 		if err != nil {
-			return err, false
+			return false, err
 		}
 
 		metadata := make(map[string]interface{})
 		if event.Metadata != nil {
 			err = r.projections.deserializer(event.Metadata, &metadata)
 			if err != nil {
-				return err, false
+				return false, err
 			}
 		}
 
@@ -147,10 +147,10 @@ func (r *Runner) RunOnce() (error, bool) {
 		r.event = e
 		err = r.callbackF(e)
 		if err != nil {
-			return err, false
+			return false, err
 		}
 	}
-	return nil, ran
+	return ran, nil
 }
 
 // RunningGroup runs a group of runners concurrently
