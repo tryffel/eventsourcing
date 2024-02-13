@@ -123,7 +123,7 @@ func (r *Runner) RunOnce() (bool, error) {
 		f, found := r.projections.register.EventRegistered(event)
 		if !found {
 			if r.Strict {
-				return false, fmt.Errorf("event not registered aggregate type: %s, reason: %s, %w", event.AggregateType, event.Reason, ErrEventNotRegistered)
+				return false, fmt.Errorf("event not registered aggregate type: %s, reason: %s, global version: %d, %w", event.AggregateType, event.Reason, event.GlobalVersion, ErrEventNotRegistered)
 			}
 			continue
 		}
