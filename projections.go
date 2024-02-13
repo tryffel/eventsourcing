@@ -35,47 +35,7 @@ type RunningGroup struct {
 	wg          sync.WaitGroup
 }
 
-// RunningGroup runs a group of runners concurrently
-func (p *Projections) RunningGroup() *RunningGroup {
-	return &RunningGroup{
-		projections: p,
-		runners:     make([]*Runner, 0),
-		cancelF:     func() {},
-	}
-}
-
-// Add adds runners to the running group
-func (g *RunningGroup) Add(runner ...*Runner) {
-	g.runners = append(g.runners, runner...)
-}
-
-// Start starts all runners in the running group and return a channel to notify if a errors is returned from a runner
-func (g *RunningGroup) Start() chan error {
-	errChan := make(chan error)
-	ctx, cancel := context.WithCancel(context.Background())
-	g.cancelF = cancel
-
-	g.wg.Add(len(g.runners))
-	for _, runner := range g.runners {
-		go func(runner *Runner) {
-			err := runner.Run(ctx)
-			if !errors.Is(err, context.Canceled) {
-				errChan <- err
-			}
-			g.wg.Done()
-		}(runner)
-	}
-	return errChan
-}
-
-// Close terminate all runners in the running group
-func (p *RunningGroup) Close() {
-	p.cancelF()
-
-	// return when all runners has terminated
-	p.wg.Wait()
-}
-
+// NewProjections create the initial projection
 func NewProjections(register *Register, deserializer DeserializeFunc) *Projections {
 	return &Projections{
 		register:     register,
@@ -83,6 +43,7 @@ func NewProjections(register *Register, deserializer DeserializeFunc) *Projectio
 	}
 }
 
+// NewRunner creates a runner that will run down an event stream
 func (p *Projections) NewRunner(fetchF fetchFunc, callbackF callbackFunc) *Runner {
 	projection := Runner{
 		fetchF:      fetchF,
@@ -92,48 +53,6 @@ func (p *Projections) NewRunner(fetchF fetchFunc, callbackF callbackFunc) *Runne
 		Strict:      true,             // Default strict is active
 	}
 	return &projection
-}
-
-type RaceResult struct {
-	Error      error
-	RunnerName string
-	Event      Event
-}
-
-// Race runs the runners to the end of the there events streams.
-// Can be used on a stale event stream with now more events comming in.
-func (g *RunningGroup) Race(cancelOnError bool) ([]RaceResult, error) {
-	result := make([]RaceResult, len(g.runners))
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	wg := sync.WaitGroup{}
-	wg.Add(len(g.runners))
-
-	var lock sync.Mutex
-	var causingErr error
-
-	for i, runner := range g.runners {
-		go func(runner *Runner, index int) {
-			defer wg.Done()
-			err := runner.RunToEnd(ctx)
-			if err != nil {
-				if !errors.Is(err, context.Canceled) && cancelOnError {
-					cancel()
-
-					lock.Lock()
-					causingErr = err
-					lock.Unlock()
-				}
-			}
-			lock.Lock()
-			result[index] = RaceResult{Error: err, RunnerName: runner.Name, Event: runner.event}
-			lock.Unlock()
-		}(runner, i)
-	}
-	wg.Wait()
-	return result, causingErr
 }
 
 // Run runs the projection forever until the context is cancelled
@@ -228,4 +147,87 @@ func (r *Runner) RunOnce() (error, bool) {
 		}
 	}
 	return nil, ran
+}
+
+// RunningGroup runs a group of runners concurrently
+func (p *Projections) RunningGroup() *RunningGroup {
+	return &RunningGroup{
+		projections: p,
+		runners:     make([]*Runner, 0),
+		cancelF:     func() {},
+	}
+}
+
+// Add adds runners to the running group
+func (g *RunningGroup) Add(runner ...*Runner) {
+	g.runners = append(g.runners, runner...)
+}
+
+// Start starts all runners in the running group and return a channel to notify if a errors is returned from a runner
+func (g *RunningGroup) Start() chan error {
+	errChan := make(chan error)
+	ctx, cancel := context.WithCancel(context.Background())
+	g.cancelF = cancel
+
+	g.wg.Add(len(g.runners))
+	for _, runner := range g.runners {
+		go func(runner *Runner) {
+			err := runner.Run(ctx)
+			if !errors.Is(err, context.Canceled) {
+				errChan <- err
+			}
+			g.wg.Done()
+		}(runner)
+	}
+	return errChan
+}
+
+// Close terminate all runners in the running group
+func (p *RunningGroup) Close() {
+	p.cancelF()
+
+	// return when all runners has terminated
+	p.wg.Wait()
+}
+
+type RaceResult struct {
+	Error      error
+	RunnerName string
+	Event      Event
+}
+
+// Race runs the runners to the end of the there events streams.
+// Can be used on a stale event stream with now more events comming in.
+func (g *RunningGroup) Race(cancelOnError bool) ([]RaceResult, error) {
+	result := make([]RaceResult, len(g.runners))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	wg := sync.WaitGroup{}
+	wg.Add(len(g.runners))
+
+	var lock sync.Mutex
+	var causingErr error
+
+	for i, runner := range g.runners {
+		go func(runner *Runner, index int) {
+			defer wg.Done()
+			err := runner.RunToEnd(ctx)
+			if err != nil {
+				if !errors.Is(err, context.Canceled) && cancelOnError {
+					cancel()
+
+					lock.Lock()
+					causingErr = err
+					lock.Unlock()
+				}
+			}
+			lock.Lock()
+			result[index] = RaceResult{Error: err, RunnerName: runner.Name, Event: runner.event}
+			lock.Unlock()
+		}(runner, i)
+	}
+	wg.Wait()
+	return result, causingErr
 }
