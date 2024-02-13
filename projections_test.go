@@ -258,6 +258,7 @@ func TestRace(t *testing.T) {
 	g.Add(r1, r2)
 
 	result, err := g.Race(true)
+	g.Close()
 
 	// causing err should be applicationErr
 	if !errors.Is(err, applicationErr) {
@@ -277,5 +278,61 @@ func TestRace(t *testing.T) {
 	// runner 1 should have halted on event with GlobalVersion 30
 	if result[1].Event.GlobalVersion() != 30 {
 		t.Fatalf("expected runner 1 Event.GlobalVersion() to be 30 but was %d", result[1].Event.GlobalVersion())
+	}
+}
+
+func TestKeepStartPosition(t *testing.T) {
+	// setup
+	es := memory.Create()
+	register := eventsourcing.NewRegister()
+	register.Register(&Person{})
+
+	err := createPersonEvent(es, "kalle", 5)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	start := core.Version(0)
+	counter := 0
+
+	// callback that handles the events
+	callbackF := func(event eventsourcing.Event) error {
+		switch event.Data().(type) {
+		case *AgedOneYear:
+			counter++
+		}
+		start = core.Version(event.GlobalVersion() + 1)
+		return nil
+	}
+
+	p := eventsourcing.NewProjections(register, json.Unmarshal)
+	r := p.NewRunner(es.GlobalEvents(0, 1), callbackF)
+
+	g := p.RunningGroup()
+	g.Add(r)
+	_, err = g.Race(true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	g.Close()
+
+	err = createPersonEvent(es, "anka", 5)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = g.Race(true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	g.Close()
+
+	// Born 2 + AgedOnYear 5 + 5 = 12 + Next Event 1 = 13
+	if start != 13 {
+		t.Fatalf("expected start to be 13 was %d", start)
+	}
+
+	if counter != 10 {
+		t.Fatalf("expected counter to be 10 was %d", counter)
 	}
 }

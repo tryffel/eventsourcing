@@ -35,6 +35,7 @@ type RunningGroup struct {
 	runners     []*Runner
 	cancelF     context.CancelFunc
 	wg          sync.WaitGroup
+	lock        sync.Mutex // prevent parallell runs
 }
 
 // NewProjections create the initial projection
@@ -169,6 +170,7 @@ func (g *RunningGroup) Add(runner ...*Runner) {
 
 // Start starts all runners in the running group and return a channel to notify if a errors is returned from a runner
 func (g *RunningGroup) Start() chan error {
+	g.lock.Lock()
 	errChan := make(chan error)
 	ctx, cancel := context.WithCancel(context.Background())
 	g.cancelF = cancel
@@ -176,22 +178,26 @@ func (g *RunningGroup) Start() chan error {
 	g.wg.Add(len(g.runners))
 	for _, runner := range g.runners {
 		go func(runner *Runner) {
+			defer g.wg.Done()
 			err := runner.Run(ctx)
 			if !errors.Is(err, context.Canceled) {
 				errChan <- err
 			}
-			g.wg.Done()
 		}(runner)
 	}
 	return errChan
 }
 
 // Close terminate all runners in the running group
-func (p *RunningGroup) Close() {
-	p.cancelF()
+func (g *RunningGroup) Close() {
+	g.cancelF()
 
 	// return when all runners has terminated
-	p.wg.Wait()
+	g.wg.Wait()
+
+	// prevent panic if closing a none started running group
+	g.lock.TryLock()
+	g.lock.Unlock()
 }
 
 type RaceResult struct {
@@ -203,20 +209,20 @@ type RaceResult struct {
 // Race runs the runners to the end of the there events streams.
 // Can be used on a stale event stream with now more events comming in.
 func (g *RunningGroup) Race(cancelOnError bool) ([]RaceResult, error) {
+	g.lock.Lock()
 	result := make([]RaceResult, len(g.runners))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	wg := sync.WaitGroup{}
-	wg.Add(len(g.runners))
+	g.wg.Add(len(g.runners))
 
 	var lock sync.Mutex
 	var causingErr error
 
 	for i, runner := range g.runners {
 		go func(runner *Runner, index int) {
-			defer wg.Done()
+			defer g.wg.Done()
 			err := runner.RunToEnd(ctx)
 			if err != nil {
 				if !errors.Is(err, context.Canceled) && cancelOnError {
@@ -232,6 +238,6 @@ func (g *RunningGroup) Race(cancelOnError bool) ([]RaceResult, error) {
 			lock.Unlock()
 		}(runner, i)
 	}
-	wg.Wait()
+	g.wg.Wait()
 	return result, causingErr
 }
