@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -258,7 +259,6 @@ func TestRace(t *testing.T) {
 	g.Add(r1, r2)
 
 	result, err := g.Race(true)
-	g.Close()
 
 	// causing err should be applicationErr
 	if !errors.Is(err, applicationErr) {
@@ -334,5 +334,55 @@ func TestKeepStartPosition(t *testing.T) {
 
 	if counter != 10 {
 		t.Fatalf("expected counter to be 10 was %d", counter)
+	}
+}
+
+func TestCloseRace(t *testing.T) {
+	// setup
+	es := memory.Create()
+	register := eventsourcing.NewRegister()
+	register.Register(&Person{})
+
+	err := createPersonEvent(es, "kalle", 50)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// callback that handles the events
+	callbackF := func(event eventsourcing.Event) error {
+		time.Sleep(time.Millisecond * 50)
+		return nil
+	}
+
+	// run projection
+	p := eventsourcing.NewProjections(register, json.Unmarshal)
+	r := p.NewRunner(es.GlobalEvents(0, 1), callbackF)
+
+	g := p.RunningGroup()
+	g.Add(r)
+
+	var errRace error
+	var result []eventsourcing.RaceResult
+
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		result, errRace = g.Race(true)
+		wg.Done()
+	}()
+
+	// add sleep to make sure the race setup is done
+	time.Sleep(time.Millisecond * 5)
+	g.Close()
+
+	// wait for the race to return
+	wg.Wait()
+
+	if !errors.Is(errRace, context.Canceled) {
+		t.Fatalf("expected a context canceled error on the race got %v", errRace)
+	}
+
+	if !errors.Is(result[0].Error, context.Canceled) {
+		t.Fatalf("expected a context canceled error on the runner result got %v", result[0].Error)
 	}
 }

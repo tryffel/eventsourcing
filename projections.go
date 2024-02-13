@@ -210,18 +210,17 @@ type RaceResult struct {
 // Can be used on a stale event stream with now more events comming in.
 func (g *RunningGroup) Race(cancelOnError bool) ([]RaceResult, error) {
 	g.lock.Lock()
-	defer g.lock.Unlock()
-
-	result := make([]RaceResult, len(g.runners))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	g.cancelF = cancel
 
 	g.wg.Add(len(g.runners))
 
 	var lock sync.Mutex
 	var causingErr error
 
+	result := make([]RaceResult, len(g.runners))
 	for i, runner := range g.runners {
 		go func(runner *Runner, index int) {
 			defer g.wg.Done()
@@ -241,5 +240,11 @@ func (g *RunningGroup) Race(cancelOnError bool) ([]RaceResult, error) {
 		}(runner, i)
 	}
 	g.wg.Wait()
-	return result, causingErr
+	if causingErr != nil {
+		return result, causingErr
+	}
+	if ctx.Err() != nil {
+		return result, ctx.Err()
+	}
+	return result, nil
 }
