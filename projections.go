@@ -3,6 +3,7 @@ package eventsourcing
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -15,6 +16,7 @@ type callbackFunc func(e Event) error
 type Projections struct {
 	register     *Register // used to map the event types
 	deserializer DeserializeFunc
+	runnerCount  int
 }
 
 type Runner struct {
@@ -49,9 +51,11 @@ func (p *Projections) NewRunner(fetchF fetchFunc, callbackF callbackFunc) *Runne
 		fetchF:      fetchF,
 		callbackF:   callbackF,
 		projections: p,
-		Pace:        time.Second * 10, // Default pace 10 seconds
-		Strict:      true,             // Default strict is active
+		Pace:        time.Second * 10,                 // Default pace 10 seconds
+		Strict:      true,                             // Default strict is active
+		Name:        fmt.Sprintf("%d", p.runnerCount), // Default the name to creation index
 	}
+	p.runnerCount++
 	return &projection
 }
 
