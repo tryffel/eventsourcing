@@ -210,6 +210,8 @@ type RaceResult struct {
 // Can be used on a stale event stream with now more events comming in.
 func (g *RunningGroup) Race(cancelOnError bool) ([]RaceResult, error) {
 	g.lock.Lock()
+	defer g.lock.Unlock()
+
 	result := make([]RaceResult, len(g.runners))
 
 	ctx, cancel := context.WithCancel(context.Background())
