@@ -120,7 +120,7 @@ func (m *Memory) GlobalEvents(start core.Version, count uint64) func() (core.Ite
 			return core.ZeroIterator{}, nil
 		}
 
-		// next time the function is called it start from the last fetched event +1
+		// next time the function is called it will start from the last fetched event +1
 		start = events[len(events)-1].GlobalVersion + 1
 		return &iterator{events: events}, nil
 	}
