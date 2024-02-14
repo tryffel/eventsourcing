@@ -24,8 +24,8 @@ type Projection struct {
 	callbackF callbackFunc
 	handler   *ProjectionHandler
 	event     Event
-	Pace      time.Duration
-	Strict    bool
+	Pace      time.Duration // Pace is used when a projection is running and it reaches the end of the event stream
+	Strict    bool          // Strict indicate if the projection should return error if the event it fetches is not found in the regiter
 	Name      string
 }
 
@@ -45,14 +45,14 @@ func (ph *ProjectionHandler) Projection(fetchF fetchFunc, callbackF callbackFunc
 		handler:   ph,
 		Pace:      time.Second * 10,            // Default pace 10 seconds
 		Strict:    true,                        // Default strict is active
-		Name:      fmt.Sprintf("%d", ph.count), // Default the name to creation index
+		Name:      fmt.Sprintf("%d", ph.count), // Default the name to it's creation index
 	}
 	ph.count++
 	return &projection
 }
 
-// Run runs the projection forever until the context is cancelled
-// When there is no more events to concume it sleeps the pace and run again.
+// Run runs the projection forever until the context is cancelled. When there are no more events to consume it
+// sleeps the set pace before it runs again.
 func (p *Projection) Run(ctx context.Context) error {
 	timer := time.NewTimer(0)
 	for {
@@ -73,7 +73,7 @@ func (p *Projection) Run(ctx context.Context) error {
 	}
 }
 
-// RunToEnd runs until it reach the end of the event stream
+// RunToEnd runs until the projection reaches the end of the event stream
 func (p *Projection) RunToEnd(ctx context.Context) error {
 	for {
 		select {
@@ -92,13 +92,12 @@ func (p *Projection) RunToEnd(ctx context.Context) error {
 	}
 }
 
-// RunOnce runs the fetch method one time and returns
+// RunOnce runs the fetch method one time
 func (p *Projection) RunOnce() (bool, error) {
 	iterator, err := p.fetchF()
 	if err != nil {
 		return false, err
 	}
-
 	defer iterator.Close()
 
 	// ran indicate if there were events to fetch
@@ -132,10 +131,9 @@ func (p *Projection) RunOnce() (bool, error) {
 				return false, err
 			}
 		}
-
 		e := NewEvent(event, data, metadata)
-		// keep a reference to the event currently processing
 
+		// keep a reference to the event currently processing
 		p.event = e
 		err = p.callbackF(e)
 		if err != nil {
@@ -188,7 +186,7 @@ type RaceResult struct {
 }
 
 // Race runs the projections to the end of the there events streams.
-// Can be used on a stale event stream with now more events comming in.
+// Can be used on a stale event stream with now more events comming in or when you want to know when all projections are done.
 func (p *ProjectionHandler) Race(cancelOnError bool, projections ...*Projection) ([]RaceResult, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
