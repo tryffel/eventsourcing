@@ -29,13 +29,12 @@ type Projection struct {
 	Name      string
 }
 
-// RunningGroup runs runners concurrently
-type RunningGroup struct {
+// Group runs projections concurrently
+type Group struct {
 	handler     *ProjectionHandler
 	projections []*Projection
 	cancelF     context.CancelFunc
 	wg          sync.WaitGroup
-	lock        sync.Mutex // prevent parallell runs
 }
 
 // Projection creates a runner that will run down an event stream
@@ -147,22 +146,16 @@ func (r *Projection) RunOnce() (bool, error) {
 }
 
 // RunningGroup runs a group of runners concurrently
-func (p *ProjectionHandler) RunningGroup() *RunningGroup {
-	return &RunningGroup{
+func (p *ProjectionHandler) Group(projections ...*Projection) *Group {
+	return &Group{
 		handler:     p,
-		projections: make([]*Projection, 0),
+		projections: projections,
 		cancelF:     func() {},
 	}
 }
 
-// Add adds runners to the running group
-func (g *RunningGroup) Add(runner ...*Projection) {
-	g.projections = append(g.projections, runner...)
-}
-
 // Start starts all runners in the running group and return a channel to notify if a errors is returned from a runner
-func (g *RunningGroup) Start() chan error {
-	g.lock.Lock()
+func (g *Group) Start() chan error {
 	errChan := make(chan error)
 	ctx, cancel := context.WithCancel(context.Background())
 	g.cancelF = cancel
@@ -180,18 +173,15 @@ func (g *RunningGroup) Start() chan error {
 	return errChan
 }
 
-// Close terminate all runners in the running group
-func (g *RunningGroup) Close() {
+// Close stops all projections in the group
+func (g *Group) Close() {
 	g.cancelF()
 
 	// return when all runners has terminated
 	g.wg.Wait()
-
-	// prevent panic if closing a none started running group
-	g.lock.TryLock()
-	g.lock.Unlock()
 }
 
+/*
 type RaceResult struct {
 	Error      error
 	RunnerName string
@@ -200,7 +190,7 @@ type RaceResult struct {
 
 // Race runs the runners to the end of the there events streams.
 // Can be used on a stale event stream with now more events comming in.
-func (g *RunningGroup) Race(cancelOnError bool) ([]RaceResult, error) {
+func (g *Group) Race(cancelOnError bool) ([]RaceResult, error) {
 	g.lock.Lock()
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -240,3 +230,4 @@ func (g *RunningGroup) Race(cancelOnError bool) ([]RaceResult, error) {
 	}
 	return result, nil
 }
+*/

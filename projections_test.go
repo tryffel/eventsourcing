@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"sync"
 	"testing"
 	"time"
 
@@ -138,7 +137,7 @@ func TestRun(t *testing.T) {
 
 func TestCloseNoneStartedRunnerGroup(t *testing.T) {
 	p := eventsourcing.ProjectionHandler{Deserializer: json.Unmarshal}
-	g := p.RunningGroup()
+	g := p.Group()
 	g.Close()
 }
 
@@ -158,8 +157,7 @@ func TestStartMultipleProjections(t *testing.T) {
 	r2 := p.Projection(es.GlobalEvents(0, 1), callbackF)
 	r3 := p.Projection(es.GlobalEvents(0, 1), callbackF)
 
-	g := p.RunningGroup()
-	g.Add(r1, r2, r3)
+	g := p.Group(r1, r2, r3)
 	g.Start()
 	g.Close()
 }
@@ -187,8 +185,7 @@ func TestErrorFromCallback(t *testing.T) {
 	p := eventsourcing.ProjectionHandler{Register: register, Deserializer: json.Unmarshal}
 	r := p.Projection(es.GlobalEvents(0, 1), callbackF)
 
-	g := p.RunningGroup()
-	g.Add(r)
+	g := p.Group(r)
 
 	errChan := g.Start()
 	defer g.Close()
@@ -225,6 +222,7 @@ func TestStrict(t *testing.T) {
 	}
 }
 
+/*
 func TestRace(t *testing.T) {
 	// setup
 	es := memory.Create()
@@ -386,3 +384,4 @@ func TestCloseRace(t *testing.T) {
 		t.Fatalf("expected a context canceled error on the runner result got %v", result[0].Error)
 	}
 }
+*/
