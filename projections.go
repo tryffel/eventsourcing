@@ -16,10 +16,10 @@ type callbackFunc func(e Event) error
 type ProjectionHandler struct {
 	Register     *Register // used to map the event types
 	Deserializer DeserializeFunc
-	runnerCount  int
+	count        int
 }
 
-type Runner struct {
+type Projection struct {
 	fetchF    fetchFunc
 	callbackF callbackFunc
 	handler   *ProjectionHandler
@@ -31,30 +31,30 @@ type Runner struct {
 
 // RunningGroup runs runners concurrently
 type RunningGroup struct {
-	projections *ProjectionHandler
-	runners     []*Runner
+	handler     *ProjectionHandler
+	projections []*Projection
 	cancelF     context.CancelFunc
 	wg          sync.WaitGroup
 	lock        sync.Mutex // prevent parallell runs
 }
 
-// NewRunner creates a runner that will run down an event stream
-func (p *ProjectionHandler) NewRunner(fetchF fetchFunc, callbackF callbackFunc) *Runner {
-	projection := Runner{
+// Projection creates a runner that will run down an event stream
+func (p *ProjectionHandler) Projection(fetchF fetchFunc, callbackF callbackFunc) *Projection {
+	projection := Projection{
 		fetchF:    fetchF,
 		callbackF: callbackF,
 		handler:   p,
-		Pace:      time.Second * 10,                 // Default pace 10 seconds
-		Strict:    true,                             // Default strict is active
-		Name:      fmt.Sprintf("%d", p.runnerCount), // Default the name to creation index
+		Pace:      time.Second * 10,           // Default pace 10 seconds
+		Strict:    true,                       // Default strict is active
+		Name:      fmt.Sprintf("%d", p.count), // Default the name to creation index
 	}
-	p.runnerCount++
+	p.count++
 	return &projection
 }
 
 // Run runs the projection forever until the context is cancelled
 // When there is no more events to concume it sleeps the pace and run again.
-func (r *Runner) Run(ctx context.Context) error {
+func (r *Projection) Run(ctx context.Context) error {
 	timer := time.NewTimer(0)
 	for {
 		select {
@@ -75,7 +75,7 @@ func (r *Runner) Run(ctx context.Context) error {
 }
 
 // RunToEnd runs until it reach the end of the event stream
-func (r *Runner) RunToEnd(ctx context.Context) error {
+func (r *Projection) RunToEnd(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
@@ -94,7 +94,7 @@ func (r *Runner) RunToEnd(ctx context.Context) error {
 }
 
 // RunOnce runs the fetch method one time and returns
-func (r *Runner) RunOnce() (bool, error) {
+func (r *Projection) RunOnce() (bool, error) {
 	iterator, err := r.fetchF()
 	if err != nil {
 		return false, err
@@ -149,15 +149,15 @@ func (r *Runner) RunOnce() (bool, error) {
 // RunningGroup runs a group of runners concurrently
 func (p *ProjectionHandler) RunningGroup() *RunningGroup {
 	return &RunningGroup{
-		projections: p,
-		runners:     make([]*Runner, 0),
+		handler:     p,
+		projections: make([]*Projection, 0),
 		cancelF:     func() {},
 	}
 }
 
 // Add adds runners to the running group
-func (g *RunningGroup) Add(runner ...*Runner) {
-	g.runners = append(g.runners, runner...)
+func (g *RunningGroup) Add(runner ...*Projection) {
+	g.projections = append(g.projections, runner...)
 }
 
 // Start starts all runners in the running group and return a channel to notify if a errors is returned from a runner
@@ -167,9 +167,9 @@ func (g *RunningGroup) Start() chan error {
 	ctx, cancel := context.WithCancel(context.Background())
 	g.cancelF = cancel
 
-	g.wg.Add(len(g.runners))
-	for _, runner := range g.runners {
-		go func(runner *Runner) {
+	g.wg.Add(len(g.projections))
+	for _, runner := range g.projections {
+		go func(runner *Projection) {
 			defer g.wg.Done()
 			err := runner.Run(ctx)
 			if !errors.Is(err, context.Canceled) {
@@ -207,14 +207,14 @@ func (g *RunningGroup) Race(cancelOnError bool) ([]RaceResult, error) {
 	defer cancel()
 	g.cancelF = cancel
 
-	g.wg.Add(len(g.runners))
+	g.wg.Add(len(g.projections))
 
 	var lock sync.Mutex
 	var causingErr error
 
-	result := make([]RaceResult, len(g.runners))
-	for i, runner := range g.runners {
-		go func(runner *Runner, index int) {
+	result := make([]RaceResult, len(g.projections))
+	for i, runner := range g.projections {
+		go func(runner *Projection, index int) {
 			defer g.wg.Done()
 			err := runner.RunToEnd(ctx)
 			if err != nil {
