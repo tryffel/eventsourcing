@@ -13,48 +13,40 @@ import (
 type fetchFunc func() (core.Iterator, error)
 type callbackFunc func(e Event) error
 
-type Projections struct {
-	register     *Register // used to map the event types
-	deserializer DeserializeFunc
+type ProjectionHandler struct {
+	Register     *Register // used to map the event types
+	Deserializer DeserializeFunc
 	runnerCount  int
 }
 
 type Runner struct {
-	fetchF      fetchFunc
-	callbackF   callbackFunc
-	projections *Projections
-	event       Event
-	Pace        time.Duration
-	Strict      bool
-	Name        string
+	fetchF    fetchFunc
+	callbackF callbackFunc
+	handler   *ProjectionHandler
+	event     Event
+	Pace      time.Duration
+	Strict    bool
+	Name      string
 }
 
 // RunningGroup runs runners concurrently
 type RunningGroup struct {
-	projections *Projections
+	projections *ProjectionHandler
 	runners     []*Runner
 	cancelF     context.CancelFunc
 	wg          sync.WaitGroup
 	lock        sync.Mutex // prevent parallell runs
 }
 
-// NewProjections create the initial projection
-func NewProjections(register *Register, deserializer DeserializeFunc) *Projections {
-	return &Projections{
-		register:     register,
-		deserializer: deserializer,
-	}
-}
-
 // NewRunner creates a runner that will run down an event stream
-func (p *Projections) NewRunner(fetchF fetchFunc, callbackF callbackFunc) *Runner {
+func (p *ProjectionHandler) NewRunner(fetchF fetchFunc, callbackF callbackFunc) *Runner {
 	projection := Runner{
-		fetchF:      fetchF,
-		callbackF:   callbackF,
-		projections: p,
-		Pace:        time.Second * 10,                 // Default pace 10 seconds
-		Strict:      true,                             // Default strict is active
-		Name:        fmt.Sprintf("%d", p.runnerCount), // Default the name to creation index
+		fetchF:    fetchF,
+		callbackF: callbackF,
+		handler:   p,
+		Pace:      time.Second * 10,                 // Default pace 10 seconds
+		Strict:    true,                             // Default strict is active
+		Name:      fmt.Sprintf("%d", p.runnerCount), // Default the name to creation index
 	}
 	p.runnerCount++
 	return &projection
@@ -120,7 +112,7 @@ func (r *Runner) RunOnce() (bool, error) {
 		}
 
 		// TODO: is only registered events of interest?
-		f, found := r.projections.register.EventRegistered(event)
+		f, found := r.handler.Register.EventRegistered(event)
 		if !found {
 			if r.Strict {
 				return false, fmt.Errorf("event not registered aggregate type: %s, reason: %s, global version: %d, %w", event.AggregateType, event.Reason, event.GlobalVersion, ErrEventNotRegistered)
@@ -129,14 +121,14 @@ func (r *Runner) RunOnce() (bool, error) {
 		}
 
 		data := f()
-		err = r.projections.deserializer(event.Data, &data)
+		err = r.handler.Deserializer(event.Data, &data)
 		if err != nil {
 			return false, err
 		}
 
 		metadata := make(map[string]interface{})
 		if event.Metadata != nil {
-			err = r.projections.deserializer(event.Metadata, &metadata)
+			err = r.handler.Deserializer(event.Metadata, &metadata)
 			if err != nil {
 				return false, err
 			}
@@ -155,7 +147,7 @@ func (r *Runner) RunOnce() (bool, error) {
 }
 
 // RunningGroup runs a group of runners concurrently
-func (p *Projections) RunningGroup() *RunningGroup {
+func (p *ProjectionHandler) RunningGroup() *RunningGroup {
 	return &RunningGroup{
 		projections: p,
 		runners:     make([]*Runner, 0),
