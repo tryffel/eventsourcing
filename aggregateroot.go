@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/hallgren/eventsourcing/core"
-	"github.com/hallgren/eventsourcing/internal"
 )
 
 // AggregateRoot to be included into aggregates
@@ -46,7 +45,7 @@ func (ar *AggregateRoot) TrackChangeWithMetadata(a aggregate, data interface{}, 
 		event: core.Event{
 			AggregateID:   ar.aggregateID,
 			Version:       ar.nextVersion(),
-			AggregateType: internal.AggregateType(a),
+			AggregateType: aggregateType(a),
 			Timestamp:     time.Now().UTC(),
 		},
 		data:     data,
@@ -135,4 +134,8 @@ func (ar *AggregateRoot) Events() []Event {
 // UnsavedEvents return true if there's unsaved events on the aggregate
 func (ar *AggregateRoot) UnsavedEvents() bool {
 	return len(ar.aggregateEvents) > 0
+}
+
+func aggregateType(a aggregate) string {
+	return reflect.TypeOf(a).Elem().Name()
 }

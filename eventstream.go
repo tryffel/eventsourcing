@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
-
-	"github.com/hallgren/eventsourcing/internal"
 )
 
 // EventStream struct that handles event subscription
@@ -137,7 +135,7 @@ func (e *EventStream) AggregateID(f func(e Event), aggregates ...aggregate) *sub
 	defer e.lock.Unlock()
 
 	for _, a := range aggregates {
-		name := internal.AggregateType(a)
+		name := aggregateType(a)
 		root := a.Root()
 		ref := fmt.Sprintf("%s_%s_%s", root.path(), name, root.ID())
 
@@ -165,7 +163,7 @@ func (e *EventStream) Aggregate(f func(e Event), aggregates ...aggregate) *subsc
 	defer e.lock.Unlock()
 
 	for _, a := range aggregates {
-		name := internal.AggregateType(a)
+		name := aggregateType(a)
 		root := a.Root()
 		ref := fmt.Sprintf("%s_%s", root.path(), name)
 
