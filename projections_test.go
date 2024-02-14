@@ -222,7 +222,6 @@ func TestStrict(t *testing.T) {
 	}
 }
 
-/*
 func TestRace(t *testing.T) {
 	// setup
 	es := memory.Create()
@@ -236,7 +235,7 @@ func TestRace(t *testing.T) {
 
 	// callback that handles the events
 	callbackF := func(event eventsourcing.Event) error {
-		time.Sleep(time.Millisecond)
+		time.Sleep(time.Millisecond * 2)
 		return nil
 	}
 
@@ -253,24 +252,21 @@ func TestRace(t *testing.T) {
 		return nil
 	})
 
-	g := p.RunningGroup()
-	g.Add(r1, r2)
-
-	result, err := g.Race(true)
+	result, err := p.Race(true, r1, r2)
 
 	// causing err should be applicationErr
 	if !errors.Is(err, applicationErr) {
-		t.Fatalf("expected causing error to be applicationErr got %s", err.Error())
+		t.Fatalf("expected causing error to be applicationErr got %v", err)
 	}
 
 	// runner 0 should have a context.Canceled error
 	if !errors.Is(result[0].Error, context.Canceled) {
-		t.Fatalf("expected runner %q to have err 'context.Canceled' got %v", result[0].RunnerName, result[0].Error)
+		t.Fatalf("expected runner %q to have err 'context.Canceled' got %v", result[0].ProjectionName, result[0].Error)
 	}
 
 	// runner 1 should have a applicationErr error
 	if !errors.Is(result[1].Error, applicationErr) {
-		t.Fatalf("expected runner %q to have err 'applicationErr' got %s", result[1].RunnerName, result[1].Error.Error())
+		t.Fatalf("expected runner %q to have err 'applicationErr' got %v", result[1].ProjectionName, result[1].Error)
 	}
 
 	// runner 1 should have halted on event with GlobalVersion 30
@@ -306,24 +302,20 @@ func TestKeepStartPosition(t *testing.T) {
 	p := eventsourcing.ProjectionHandler{Register: register, Deserializer: json.Unmarshal}
 	r := p.Projection(es.GlobalEvents(0, 1), callbackF)
 
-	g := p.RunningGroup()
-	g.Add(r)
-	_, err = g.Race(true)
+	_, err = p.Race(true, r)
 	if err != nil {
 		t.Fatal(err)
 	}
-	g.Close()
 
 	err = createPersonEvent(es, "anka", 5)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = g.Race(true)
+	_, err = p.Race(true, r)
 	if err != nil {
 		t.Fatal(err)
 	}
-	g.Close()
 
 	// Born 2 + AgedOnYear 5 + 5 = 12 + Next Event 1 = 13
 	if start != 13 {
@@ -335,6 +327,7 @@ func TestKeepStartPosition(t *testing.T) {
 	}
 }
 
+/*
 func TestCloseRace(t *testing.T) {
 	// setup
 	es := memory.Create()

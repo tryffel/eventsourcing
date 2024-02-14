@@ -38,22 +38,22 @@ type Group struct {
 }
 
 // Projection creates a runner that will run down an event stream
-func (p *ProjectionHandler) Projection(fetchF fetchFunc, callbackF callbackFunc) *Projection {
+func (ph *ProjectionHandler) Projection(fetchF fetchFunc, callbackF callbackFunc) *Projection {
 	projection := Projection{
 		fetchF:    fetchF,
 		callbackF: callbackF,
-		handler:   p,
-		Pace:      time.Second * 10,           // Default pace 10 seconds
-		Strict:    true,                       // Default strict is active
-		Name:      fmt.Sprintf("%d", p.count), // Default the name to creation index
+		handler:   ph,
+		Pace:      time.Second * 10,            // Default pace 10 seconds
+		Strict:    true,                        // Default strict is active
+		Name:      fmt.Sprintf("%d", ph.count), // Default the name to creation index
 	}
-	p.count++
+	ph.count++
 	return &projection
 }
 
 // Run runs the projection forever until the context is cancelled
 // When there is no more events to concume it sleeps the pace and run again.
-func (r *Projection) Run(ctx context.Context) error {
+func (p *Projection) Run(ctx context.Context) error {
 	timer := time.NewTimer(0)
 	for {
 		select {
@@ -63,24 +63,24 @@ func (r *Projection) Run(ctx context.Context) error {
 			}
 			return ctx.Err()
 		case <-timer.C:
-			err := r.RunToEnd(ctx)
+			err := p.RunToEnd(ctx)
 			if err != nil {
 				return err
 			}
 		}
 		// rest
-		timer.Reset(r.Pace)
+		timer.Reset(p.Pace)
 	}
 }
 
 // RunToEnd runs until it reach the end of the event stream
-func (r *Projection) RunToEnd(ctx context.Context) error {
+func (p *Projection) RunToEnd(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
-			ran, err := r.RunOnce()
+			ran, err := p.RunOnce()
 			if err != nil {
 				return err
 			}
@@ -93,8 +93,8 @@ func (r *Projection) RunToEnd(ctx context.Context) error {
 }
 
 // RunOnce runs the fetch method one time and returns
-func (r *Projection) RunOnce() (bool, error) {
-	iterator, err := r.fetchF()
+func (p *Projection) RunOnce() (bool, error) {
+	iterator, err := p.fetchF()
 	if err != nil {
 		return false, err
 	}
@@ -111,23 +111,23 @@ func (r *Projection) RunOnce() (bool, error) {
 		}
 
 		// TODO: is only registered events of interest?
-		f, found := r.handler.Register.EventRegistered(event)
+		f, found := p.handler.Register.EventRegistered(event)
 		if !found {
-			if r.Strict {
+			if p.Strict {
 				return false, fmt.Errorf("event not registered aggregate type: %s, reason: %s, global version: %d, %w", event.AggregateType, event.Reason, event.GlobalVersion, ErrEventNotRegistered)
 			}
 			continue
 		}
 
 		data := f()
-		err = r.handler.Deserializer(event.Data, &data)
+		err = p.handler.Deserializer(event.Data, &data)
 		if err != nil {
 			return false, err
 		}
 
 		metadata := make(map[string]interface{})
 		if event.Metadata != nil {
-			err = r.handler.Deserializer(event.Metadata, &metadata)
+			err = p.handler.Deserializer(event.Metadata, &metadata)
 			if err != nil {
 				return false, err
 			}
@@ -136,8 +136,8 @@ func (r *Projection) RunOnce() (bool, error) {
 		e := NewEvent(event, data, metadata)
 		// keep a reference to the event currently processing
 
-		r.event = e
-		err = r.callbackF(e)
+		p.event = e
+		err = p.callbackF(e)
 		if err != nil {
 			return false, err
 		}
@@ -146,9 +146,9 @@ func (r *Projection) RunOnce() (bool, error) {
 }
 
 // RunningGroup runs a group of runners concurrently
-func (p *ProjectionHandler) Group(projections ...*Projection) *Group {
+func (ph *ProjectionHandler) Group(projections ...*Projection) *Group {
 	return &Group{
-		handler:     p,
+		handler:     ph,
 		projections: projections,
 		cancelF:     func() {},
 	}
@@ -181,32 +181,29 @@ func (g *Group) Close() {
 	g.wg.Wait()
 }
 
-/*
 type RaceResult struct {
-	Error      error
-	RunnerName string
-	Event      Event
+	Error          error
+	ProjectionName string
+	Event          Event
 }
 
 // Race runs the runners to the end of the there events streams.
 // Can be used on a stale event stream with now more events comming in.
-func (g *Group) Race(cancelOnError bool) ([]RaceResult, error) {
-	g.lock.Lock()
-
+func (p *ProjectionHandler) Race(cancelOnError bool, projections ...*Projection) ([]RaceResult, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	g.cancelF = cancel
 
-	g.wg.Add(len(g.projections))
+	wg := sync.WaitGroup{}
+	wg.Add(len(projections))
 
 	var lock sync.Mutex
 	var causingErr error
 
-	result := make([]RaceResult, len(g.projections))
-	for i, runner := range g.projections {
-		go func(runner *Projection, index int) {
-			defer g.wg.Done()
-			err := runner.RunToEnd(ctx)
+	result := make([]RaceResult, len(projections))
+	for i, projection := range projections {
+		go func(pr *Projection, index int) {
+			defer wg.Done()
+			err := pr.RunToEnd(ctx)
 			if err != nil {
 				if !errors.Is(err, context.Canceled) && cancelOnError {
 					cancel()
@@ -217,17 +214,10 @@ func (g *Group) Race(cancelOnError bool) ([]RaceResult, error) {
 				}
 			}
 			lock.Lock()
-			result[index] = RaceResult{Error: err, RunnerName: runner.Name, Event: runner.event}
+			result[index] = RaceResult{Error: err, ProjectionName: pr.Name, Event: pr.event}
 			lock.Unlock()
-		}(runner, i)
+		}(projection, i)
 	}
-	g.wg.Wait()
-	if causingErr != nil {
-		return result, causingErr
-	}
-	if ctx.Err() != nil {
-		return result, ctx.Err()
-	}
-	return result, nil
+	wg.Wait()
+	return result, causingErr
 }
-*/
