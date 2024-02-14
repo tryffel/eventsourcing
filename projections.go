@@ -37,7 +37,7 @@ type Group struct {
 	wg          sync.WaitGroup
 }
 
-// Projection creates a runner that will run down an event stream
+// Projection creates a projection that will run down an event stream
 func (ph *ProjectionHandler) Projection(fetchF fetchFunc, callbackF callbackFunc) *Projection {
 	projection := Projection{
 		fetchF:    fetchF,
@@ -145,7 +145,7 @@ func (p *Projection) RunOnce() (bool, error) {
 	return ran, nil
 }
 
-// RunningGroup runs a group of runners concurrently
+// Group runs a group of projections concurrently
 func (ph *ProjectionHandler) Group(projections ...*Projection) *Group {
 	return &Group{
 		handler:     ph,
@@ -154,21 +154,21 @@ func (ph *ProjectionHandler) Group(projections ...*Projection) *Group {
 	}
 }
 
-// Start starts all runners in the running group and return a channel to notify if a errors is returned from a runner
+// Start starts all projectinos in the group and return a channel to notify if a errors is returned from a projection
 func (g *Group) Start() chan error {
 	errChan := make(chan error)
 	ctx, cancel := context.WithCancel(context.Background())
 	g.cancelF = cancel
 
 	g.wg.Add(len(g.projections))
-	for _, runner := range g.projections {
-		go func(runner *Projection) {
+	for _, projection := range g.projections {
+		go func(p *Projection) {
 			defer g.wg.Done()
-			err := runner.Run(ctx)
+			err := p.Run(ctx)
 			if !errors.Is(err, context.Canceled) {
 				errChan <- err
 			}
-		}(runner)
+		}(projection)
 	}
 	return errChan
 }
@@ -177,7 +177,7 @@ func (g *Group) Start() chan error {
 func (g *Group) Close() {
 	g.cancelF()
 
-	// return when all runners has terminated
+	// return when all projections has stopped
 	g.wg.Wait()
 }
 
@@ -187,7 +187,7 @@ type RaceResult struct {
 	Event          Event
 }
 
-// Race runs the runners to the end of the there events streams.
+// Race runs the projections to the end of the there events streams.
 // Can be used on a stale event stream with now more events comming in.
 func (p *ProjectionHandler) Race(cancelOnError bool, projections ...*Projection) ([]RaceResult, error) {
 	ctx, cancel := context.WithCancel(context.Background())

@@ -135,7 +135,7 @@ func TestRun(t *testing.T) {
 	}
 }
 
-func TestCloseNoneStartedRunnerGroup(t *testing.T) {
+func TestCloseEmptyGroup(t *testing.T) {
 	p := eventsourcing.ProjectionHandler{Deserializer: json.Unmarshal}
 	g := p.Group()
 	g.Close()
@@ -151,7 +151,6 @@ func TestStartMultipleProjections(t *testing.T) {
 		return nil
 	}
 
-	// run projection
 	p := eventsourcing.ProjectionHandler{Register: register, Deserializer: json.Unmarshal}
 	r1 := p.Projection(es.GlobalEvents(0, 1), callbackF)
 	r2 := p.Projection(es.GlobalEvents(0, 1), callbackF)
@@ -181,7 +180,6 @@ func TestErrorFromCallback(t *testing.T) {
 		return ErrApplication
 	}
 
-	// run projection
 	p := eventsourcing.ProjectionHandler{Register: register, Deserializer: json.Unmarshal}
 	r := p.Projection(es.GlobalEvents(0, 1), callbackF)
 
@@ -210,7 +208,6 @@ func TestStrict(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// run projection
 	p := eventsourcing.ProjectionHandler{Register: register, Deserializer: json.Unmarshal}
 	proj := p.Projection(es.GlobalEvents(0, 1), func(event eventsourcing.Event) error {
 		return nil
@@ -241,7 +238,6 @@ func TestRace(t *testing.T) {
 
 	applicationErr := errors.New("an error")
 
-	// run projection
 	p := eventsourcing.ProjectionHandler{Register: register, Deserializer: json.Unmarshal}
 	r1 := p.Projection(es.GlobalEvents(0, 1), callbackF)
 	r2 := p.Projection(es.GlobalEvents(0, 1), func(e eventsourcing.Event) error {
@@ -259,19 +255,19 @@ func TestRace(t *testing.T) {
 		t.Fatalf("expected causing error to be applicationErr got %v", err)
 	}
 
-	// runner 0 should have a context.Canceled error
+	// projection 0 should have a context.Canceled error
 	if !errors.Is(result[0].Error, context.Canceled) {
-		t.Fatalf("expected runner %q to have err 'context.Canceled' got %v", result[0].ProjectionName, result[0].Error)
+		t.Fatalf("expected projection %q to have err 'context.Canceled' got %v", result[0].ProjectionName, result[0].Error)
 	}
 
-	// runner 1 should have a applicationErr error
+	// projection 1 should have a applicationErr error
 	if !errors.Is(result[1].Error, applicationErr) {
-		t.Fatalf("expected runner %q to have err 'applicationErr' got %v", result[1].ProjectionName, result[1].Error)
+		t.Fatalf("expected projection %q to have err 'applicationErr' got %v", result[1].ProjectionName, result[1].Error)
 	}
 
-	// runner 1 should have halted on event with GlobalVersion 30
+	// projection 1 should have halted on event with GlobalVersion 30
 	if result[1].Event.GlobalVersion() != 30 {
-		t.Fatalf("expected runner 1 Event.GlobalVersion() to be 30 but was %d", result[1].Event.GlobalVersion())
+		t.Fatalf("expected projection 1 Event.GlobalVersion() to be 30 but was %d", result[1].Event.GlobalVersion())
 	}
 }
 
@@ -374,7 +370,7 @@ func TestCloseRace(t *testing.T) {
 	}
 
 	if !errors.Is(result[0].Error, context.Canceled) {
-		t.Fatalf("expected a context canceled error on the runner result got %v", result[0].Error)
+		t.Fatalf("expected a context canceled error on the projection result got %v", result[0].Error)
 	}
 }
 */
