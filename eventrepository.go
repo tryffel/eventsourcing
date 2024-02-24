@@ -2,7 +2,6 @@ package eventsourcing
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -42,26 +41,33 @@ var (
 type SerializeFunc func(v interface{}) ([]byte, error)
 type DeserializeFunc func(data []byte, v interface{}) error
 
+type Encoder interface {
+	Serialize(v interface{}) ([]byte, error)
+	Deserialize(data []byte, v interface{}) error
+}
+
 // EventRepository is the returned instance from the factory function
 type EventRepository struct {
 	eventStream *EventStream
 	eventStore  core.EventStore
 	// register that convert the Data []byte to correct type
-	register *register
-	// serializer / deserializer
-	Serializer   SerializeFunc
-	Deserializer DeserializeFunc
+	register *Register
+	// encoder to serialize / deserialize events
+	encoder Encoder
 }
 
 // NewRepository factory function
 func NewEventRepository(eventStore core.EventStore) *EventRepository {
 	return &EventRepository{
-		eventStore:   eventStore,
-		eventStream:  NewEventStream(),
-		Serializer:   json.Marshal,
-		Deserializer: json.Unmarshal,
-		register:     newRegister(),
+		eventStore:  eventStore,
+		eventStream: NewEventStream(),
+		register:    NewRegister(),
+		encoder:     EncoderJSON{}, // Default to JSON encoder
 	}
+}
+
+func (r *EventRepository) Encoder(e Encoder) {
+	r.encoder = e
 }
 
 func (r *EventRepository) Register(a aggregate) {
@@ -86,11 +92,11 @@ func (r *EventRepository) Save(a aggregate) error {
 
 	// serialize the data and meta data into []byte
 	for _, event := range root.aggregateEvents {
-		data, err := r.Serializer(event.Data())
+		data, err := r.encoder.Serialize(event.Data())
 		if err != nil {
 			return err
 		}
-		metadata, err := r.Serializer(event.Metadata())
+		metadata, err := r.encoder.Serialize(event.Metadata())
 		if err != nil {
 			return err
 		}
@@ -163,12 +169,12 @@ func (r *EventRepository) GetWithContext(ctx context.Context, id string, a aggre
 				continue
 			}
 			data := f()
-			err = r.Deserializer(event.Data, &data)
+			err = r.encoder.Deserialize(event.Data, &data)
 			if err != nil {
 				return err
 			}
 			metadata := make(map[string]interface{})
-			err = r.Deserializer(event.Metadata, &metadata)
+			err = r.encoder.Deserialize(event.Metadata, &metadata)
 			if err != nil {
 				return err
 			}
