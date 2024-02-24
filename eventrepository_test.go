@@ -221,6 +221,8 @@ func TestSubscriptionSpecificAggregate(t *testing.T) {
 }
 
 func TestEventChainDoesNotHang(t *testing.T) {
+	var eventChanErr error
+
 	repo := eventsourcing.NewEventRepository(memory.Create())
 	repo.Register(&Person{})
 
@@ -233,18 +235,19 @@ func TestEventChainDoesNotHang(t *testing.T) {
 
 	// for every AgedOnYear create a new person and make it grow one year older
 	go func() {
+		defer close(doneChan)
 		for e := range eventChan {
 			switch e.Data().(type) {
 			case *AgedOneYear:
 				person, err := CreatePerson("kalle")
 				if err != nil {
-					t.Fatal(err)
+					eventChanErr = err
+					return
 				}
 				person.GrowOlder()
 				repo.Save(person)
 			}
 		}
-		close(doneChan)
 	}()
 
 	// create the initial person and setup event subscription on the specific person events
@@ -276,6 +279,9 @@ func TestEventChainDoesNotHang(t *testing.T) {
 	}
 	close(eventChan)
 	<-doneChan
+	if eventChanErr != nil {
+		t.Fatal(eventChanErr)
+	}
 	if ageCounter != 6 {
 		t.Errorf("wrong number in ageCounter expected 6, got %v", ageCounter)
 	}
