@@ -66,6 +66,7 @@ func NewEventRepository(eventStore core.EventStore) *EventRepository {
 	}
 }
 
+// Encoder set the event serializer/deserializer
 func (er *EventRepository) Encoder(e encoder) {
 	er.encoder = e
 }
