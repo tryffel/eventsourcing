@@ -2,8 +2,7 @@ package eventsourcing
 
 import "encoding/json"
 
-type EncoderJSON struct {
-}
+type EncoderJSON struct{}
 
 func (e EncoderJSON) Serialize(v interface{}) ([]byte, error) {
 	return json.Marshal(v)

@@ -41,7 +41,7 @@ var (
 type SerializeFunc func(v interface{}) ([]byte, error)
 type DeserializeFunc func(data []byte, v interface{}) error
 
-type Encoder interface {
+type encoder interface {
 	Serialize(v interface{}) ([]byte, error)
 	Deserialize(data []byte, v interface{}) error
 }
@@ -53,7 +53,7 @@ type EventRepository struct {
 	// register that convert the Data []byte to correct type
 	register *Register
 	// encoder to serialize / deserialize events
-	encoder Encoder
+	encoder encoder
 }
 
 // NewRepository factory function
@@ -66,7 +66,7 @@ func NewEventRepository(eventStore core.EventStore) *EventRepository {
 	}
 }
 
-func (r *EventRepository) Encoder(e Encoder) {
+func (r *EventRepository) Encoder(e encoder) {
 	r.encoder = e
 }
 

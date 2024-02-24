@@ -20,7 +20,7 @@ type SnapshotAggregate interface {
 type SnapshotRepository struct {
 	eventRepository *EventRepository
 	snapshotStore   core.SnapshotStore
-	Encoder         Encoder
+	Encoder         encoder
 }
 
 // NewSnapshotRepository factory function
