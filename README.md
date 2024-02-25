@@ -221,13 +221,9 @@ type EventStore interface {
 
 The event store needs to import the `github.com/hallgren/eventsourcing/core` module that expose the `core.Event`, `core.Version` and `core.Iterator` types.
 
-## Serializer
+### Encoder
 
-To store events they have to be serialised into `[]byte`. By default the `encoding/json` is used but it could be replaced on the repository by setting the `repo.Serializer` and `repo.Deserializer` function properties.
-
-## Encoder
-
-Before the events are stored the `Data` and `Metadata` properties needs to be serialized into `[]byte`. Default the `encoding/json` package is used but can be replaced by using the `repo.Encoder(e encoder)` method on the event repository. A customer encoder has to follow this interface.
+Before an event is stored into a event store the `Data` and `Metadata` properties needs to be serialized into `[]byte`. The default encoder uses the `encoding/json` package for serialization/deserialization but can be replaced by using the `repo.Encoder(e encoder)` method on the event repository. A customer encoder has to follow this interface.
 
 ```go
 type encoder interface {
