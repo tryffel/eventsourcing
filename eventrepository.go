@@ -66,7 +66,7 @@ func NewEventRepository(eventStore core.EventStore) *EventRepository {
 	}
 }
 
-// Encoder set the event serializer/deserializer
+// Encoder change the default JSON encoder that serializer/deserializer events
 func (er *EventRepository) Encoder(e encoder) {
 	er.encoder = e
 }
