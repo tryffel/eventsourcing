@@ -223,7 +223,7 @@ The event store needs to import the `github.com/hallgren/eventsourcing/core` mod
 
 ### Encoder
 
-Before an `eventsourcing.Event` is stored into a event store it has to be tranformed into the `core.Event`. This is done with an encoder, the encoder serialize the data properties `Data` and `Metadata` into `[]byte`. When a event is fetched the encoder deserialise the `Data` and `Metadata` `[]byte` back into there actual types.
+Before an `eventsourcing.Event` is stored into a event store it has to be tranformed into an `core.Event`. This is done with an encoder that serializes the data properties `Data` and `Metadata` into `[]byte`. When a event is fetched the encoder deserialises the `Data` and `Metadata` `[]byte` back into there actual types.
 
 The event repository has a default encoder that uses the `encoding/json` package for serialization/deserialization. It can be replaced by using the `Encoder(e encoder)` method on the event repository and has to follow this interface:
 
