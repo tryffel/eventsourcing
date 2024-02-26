@@ -185,8 +185,8 @@ type RaceResult struct {
 	Event          Event
 }
 
-// Race runs the projections to the end of the there events streams.
-// Can be used on a stale event stream with now more events comming in or when you want to know when all projections are done.
+// Race runs the projections to the end of the events streams.
+// Can be used on a stale event stream with no more events coming in or when you want to know when all projections are done.
 func (p *ProjectionHandler) Race(cancelOnError bool, projections ...*Projection) ([]RaceResult, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
