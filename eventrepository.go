@@ -24,6 +24,11 @@ type EventSubscribers interface {
 	Name(f func(e Event), aggregate string, events ...string) *subscription
 }
 
+type encoder interface {
+	Serialize(v interface{}) ([]byte, error)
+	Deserialize(data []byte, v interface{}) error
+}
+
 var (
 	// ErrAggregateNotFound returns if events not found for aggregate or aggregate was not based on snapshot from the outside
 	ErrAggregateNotFound = errors.New("aggregate not found")
@@ -37,14 +42,6 @@ var (
 	// ErrConcurrency when the currently saved version of the aggregate differs from the new events
 	ErrConcurrency = errors.New("concurrency error")
 )
-
-type SerializeFunc func(v interface{}) ([]byte, error)
-type DeserializeFunc func(data []byte, v interface{}) error
-
-type encoder interface {
-	Serialize(v interface{}) ([]byte, error)
-	Deserialize(data []byte, v interface{}) error
-}
 
 // EventRepository is the returned instance from the factory function
 type EventRepository struct {
