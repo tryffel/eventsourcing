@@ -62,7 +62,7 @@ func NewEventRepository(eventStore core.EventStore) *EventRepository {
 	return &EventRepository{
 		eventStore:  eventStore,
 		eventStream: NewEventStream(),
-		register:    NewRegister(),
+		register:    register,
 		encoder:     encoder, // Default to JSON encoder
 		Projections: &ProjectionHandler{
 			Register:     register,
