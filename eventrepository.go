@@ -73,7 +73,10 @@ func NewEventRepository(eventStore core.EventStore) *EventRepository {
 
 // Encoder change the default JSON encoder that serializer/deserializer events
 func (er *EventRepository) Encoder(e encoder) {
+	// set encoder on event repository
 	er.encoder = e
+	// set deserializer from encoder on the projection handler
+	er.Projections.Deserializer = e.Deserialize
 }
 
 func (er *EventRepository) Register(a aggregate) {
