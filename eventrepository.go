@@ -2,7 +2,6 @@ package eventsourcing
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -25,6 +24,11 @@ type EventSubscribers interface {
 	Name(f func(e Event), aggregate string, events ...string) *subscription
 }
 
+type encoder interface {
+	Serialize(v interface{}) ([]byte, error)
+	Deserialize(data []byte, v interface{}) error
+}
+
 var (
 	// ErrAggregateNotFound returns if events not found for aggregate or aggregate was not based on snapshot from the outside
 	ErrAggregateNotFound = errors.New("aggregate not found")
@@ -39,43 +43,43 @@ var (
 	ErrConcurrency = errors.New("concurrency error")
 )
 
-type SerializeFunc func(v interface{}) ([]byte, error)
-type DeserializeFunc func(data []byte, v interface{}) error
-
 // EventRepository is the returned instance from the factory function
 type EventRepository struct {
 	eventStream *EventStream
 	eventStore  core.EventStore
 	// register that convert the Data []byte to correct type
-	register *register
-	// serializer / deserializer
-	Serializer   SerializeFunc
-	Deserializer DeserializeFunc
+	register *Register
+	// encoder to serialize / deserialize events
+	encoder encoder
 }
 
 // NewRepository factory function
 func NewEventRepository(eventStore core.EventStore) *EventRepository {
 	return &EventRepository{
-		eventStore:   eventStore,
-		eventStream:  NewEventStream(),
-		Serializer:   json.Marshal,
-		Deserializer: json.Unmarshal,
-		register:     newRegister(),
+		eventStore:  eventStore,
+		eventStream: NewEventStream(),
+		register:    NewRegister(),
+		encoder:     EncoderJSON{}, // Default to JSON encoder
 	}
 }
 
-func (r *EventRepository) Register(a aggregate) {
-	r.register.Register(a)
+// Encoder change the default JSON encoder that serializer/deserializer events
+func (er *EventRepository) Encoder(e encoder) {
+	er.encoder = e
+}
+
+func (er *EventRepository) Register(a aggregate) {
+	er.register.Register(a)
 }
 
 // Subscribers returns an interface with all event subscribers
-func (r *EventRepository) Subscribers() EventSubscribers {
-	return r.eventStream
+func (er *EventRepository) Subscribers() EventSubscribers {
+	return er.eventStream
 }
 
 // Save an aggregates events
-func (r *EventRepository) Save(a aggregate) error {
-	if !r.register.AggregateRegistered(a) {
+func (er *EventRepository) Save(a aggregate) error {
+	if !er.register.AggregateRegistered(a) {
 		return ErrAggregateNotRegistered
 	}
 
@@ -86,11 +90,11 @@ func (r *EventRepository) Save(a aggregate) error {
 
 	// serialize the data and meta data into []byte
 	for _, event := range root.aggregateEvents {
-		data, err := r.Serializer(event.Data())
+		data, err := er.encoder.Serialize(event.Data())
 		if err != nil {
 			return err
 		}
-		metadata, err := r.Serializer(event.Metadata())
+		metadata, err := er.encoder.Serialize(event.Metadata())
 		if err != nil {
 			return err
 		}
@@ -104,14 +108,14 @@ func (r *EventRepository) Save(a aggregate) error {
 			Metadata:      metadata,
 			Reason:        event.Reason(),
 		}
-		_, ok := r.register.EventRegistered(esEvent)
+		_, ok := er.register.EventRegistered(esEvent)
 		if !ok {
 			return ErrEventNotRegistered
 		}
 		esEvents = append(esEvents, esEvent)
 	}
 
-	err := r.eventStore.Save(esEvents)
+	err := er.eventStore.Save(esEvents)
 	if err != nil {
 		if errors.Is(err, core.ErrConcurrency) {
 			return ErrConcurrency
@@ -125,7 +129,7 @@ func (r *EventRepository) Save(a aggregate) error {
 	}
 
 	// publish the saved events to subscribers
-	r.eventStream.Publish(*root, root.Events())
+	er.eventStream.Publish(*root, root.Events())
 
 	// update the internal aggregate state
 	root.update()
@@ -134,7 +138,7 @@ func (r *EventRepository) Save(a aggregate) error {
 
 // GetWithContext fetches the aggregates event and build up the aggregate based on it's current version.
 // The event fetching can be canceled from the outside.
-func (r *EventRepository) GetWithContext(ctx context.Context, id string, a aggregate) error {
+func (er *EventRepository) GetWithContext(ctx context.Context, id string, a aggregate) error {
 	if reflect.ValueOf(a).Kind() != reflect.Ptr {
 		return ErrAggregateNeedsToBeAPointer
 	}
@@ -142,7 +146,7 @@ func (r *EventRepository) GetWithContext(ctx context.Context, id string, a aggre
 	root := a.Root()
 	aggregateType := aggregateType(a)
 	// fetch events after the current version of the aggregate that could be fetched from the snapshot store
-	eventIterator, err := r.eventStore.Get(ctx, id, aggregateType, core.Version(root.aggregateVersion))
+	eventIterator, err := er.eventStore.Get(ctx, id, aggregateType, core.Version(root.aggregateVersion))
 	if err != nil {
 		return err
 	}
@@ -158,17 +162,17 @@ func (r *EventRepository) GetWithContext(ctx context.Context, id string, a aggre
 				return err
 			}
 			// apply the event to the aggregate
-			f, found := r.register.EventRegistered(event)
+			f, found := er.register.EventRegistered(event)
 			if !found {
 				continue
 			}
 			data := f()
-			err = r.Deserializer(event.Data, &data)
+			err = er.encoder.Deserialize(event.Data, &data)
 			if err != nil {
 				return err
 			}
 			metadata := make(map[string]interface{})
-			err = r.Deserializer(event.Metadata, &metadata)
+			err = er.encoder.Deserialize(event.Metadata, &metadata)
 			if err != nil {
 				return err
 			}
@@ -186,6 +190,6 @@ func (r *EventRepository) GetWithContext(ctx context.Context, id string, a aggre
 // Get fetches the aggregates event and build up the aggregate.
 // If the aggregate is based on a snapshot it fetches event after the
 // version of the aggregate.
-func (r *EventRepository) Get(id string, a aggregate) error {
-	return r.GetWithContext(context.Background(), id, a)
+func (er *EventRepository) Get(id string, a aggregate) error {
+	return er.GetWithContext(context.Background(), id, a)
 }
