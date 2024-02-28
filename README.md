@@ -367,3 +367,80 @@ func (s *snapshot) DeserializeSnapshot(m eventsourcing.DeserializeFunc, b []byte
 	return nil
 }
 ```
+
+## Projections - Work in progress
+
+Introduction
+
+### ProjectionHandler
+
+The Projection handler is the central part where all projections are created. It's available from the event repository by the `eventrepo.Projections` property but can also be created by itself. It hold a pointer to the `Register` that holds all event types and also a `Deserializer` to deserialize the events from the event store back into a `eventsourcing.Event`.
+
+```go
+type ProjectionHandler struct {
+	Register     *Register // used to map the event types
+	Deserializer DeserializeFunc
+}
+```
+
+### Projection
+
+A projection is created from the projections handler via the `Projection(fetchF fetchFunc, callbackF callbackFunc) *Projection` method. It takes a fetchFunc and a callbackFunc and return a pointer to a Projection.
+
+The fetchFunc must return a core.Iterator and a error. This is the same return structure that all event stores return when they return events for aggregates.
+
+```go
+type fetchFunc func() (core.Iterator, error)
+```
+
+The callbackFunc is called for every iterated event from the fetchFunc. The event is typed and can be handled in the same way as in the `Transition` method on an aggregate.
+
+```go
+type callbackFunc func(e Event) error
+```
+
+Example: Creates a projection that fetch all events from the es event store and handle them in the callbackF.
+
+```go
+p := repo.Projections.Projection(es.All(0, 1), func(event eventsourcing.Event) error {
+	switch e := event.Data().(type) {
+	case *Born:
+		projectedName = e.Name
+	}
+	return nil
+})
+```
+
+A projection can be started in different ways.
+
+- RunOnce
+Fetch events from the event store once and when the iterator.Next() return false it returns. It return true if there were events to iterate.
+
+```go
+RunOnce() (bool, error)
+```
+
+- RunToEnd
+Fetch event from the event store until there is no more events to retrieve. A context is passed in making it possible to cancel from the outside.
+
+```go
+RunToEnd(ctx context.Context) error
+```
+
+- Run
+Will loop forever util canceled from the outside. When it hits the end of the event stream it will start a timer and sleep the time set in the projection property `Pace`.
+
+```go
+Run(ctx context.Context) error
+```
+
+Other properties on the projection are `Strict` and `Name`. `Strict` is default true and will trigger an error if a fetched event is not found in the `Register`. This force all events to be handled in the callbackFunc. `Name` is used to name the projection and can be easy debugging when running multiple projections. The name is default the index of when the projection was created.
+
+### Run multiple projections
+
+- Group 
+ - Start
+ - Close
+
+- Race
+ - RaceResult
