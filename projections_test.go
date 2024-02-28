@@ -62,7 +62,7 @@ func TestRunOnce(t *testing.T) {
 
 	// run projection one event at each run
 	p := eventsourcing.ProjectionHandler{Register: register, Deserializer: json.Unmarshal}
-	proj := p.Projection(es.GlobalEvents(0, 1), func(event eventsourcing.Event) error {
+	proj := p.Projection(es.All(0, 1), func(event eventsourcing.Event) error {
 		switch e := event.Data().(type) {
 		case *Born:
 			projectedName = e.Name
@@ -113,7 +113,7 @@ func TestRun(t *testing.T) {
 
 	// run projection
 	p := eventsourcing.ProjectionHandler{Register: register, Deserializer: json.Unmarshal}
-	proj := p.Projection(es.GlobalEvents(0, 1), func(event eventsourcing.Event) error {
+	proj := p.Projection(es.All(0, 1), func(event eventsourcing.Event) error {
 		switch e := event.Data().(type) {
 		case *Born:
 			projectedName = e.Name
@@ -152,9 +152,9 @@ func TestStartMultipleProjections(t *testing.T) {
 	}
 
 	p := eventsourcing.ProjectionHandler{Register: register, Deserializer: json.Unmarshal}
-	r1 := p.Projection(es.GlobalEvents(0, 1), callbackF)
-	r2 := p.Projection(es.GlobalEvents(0, 1), callbackF)
-	r3 := p.Projection(es.GlobalEvents(0, 1), callbackF)
+	r1 := p.Projection(es.All(0, 1), callbackF)
+	r2 := p.Projection(es.All(0, 1), callbackF)
+	r3 := p.Projection(es.All(0, 1), callbackF)
 
 	g := p.Group(r1, r2, r3)
 	g.Start()
@@ -181,7 +181,7 @@ func TestErrorFromCallback(t *testing.T) {
 	}
 
 	p := eventsourcing.ProjectionHandler{Register: register, Deserializer: json.Unmarshal}
-	r := p.Projection(es.GlobalEvents(0, 1), callbackF)
+	r := p.Projection(es.All(0, 1), callbackF)
 
 	g := p.Group(r)
 
@@ -209,7 +209,7 @@ func TestStrict(t *testing.T) {
 	}
 
 	p := eventsourcing.ProjectionHandler{Register: register, Deserializer: json.Unmarshal}
-	proj := p.Projection(es.GlobalEvents(0, 1), func(event eventsourcing.Event) error {
+	proj := p.Projection(es.All(0, 1), func(event eventsourcing.Event) error {
 		return nil
 	})
 
@@ -239,8 +239,8 @@ func TestRace(t *testing.T) {
 	applicationErr := errors.New("an error")
 
 	p := eventsourcing.ProjectionHandler{Register: register, Deserializer: json.Unmarshal}
-	r1 := p.Projection(es.GlobalEvents(0, 1), callbackF)
-	r2 := p.Projection(es.GlobalEvents(0, 1), func(e eventsourcing.Event) error {
+	r1 := p.Projection(es.All(0, 1), callbackF)
+	r2 := p.Projection(es.All(0, 1), func(e eventsourcing.Event) error {
 		time.Sleep(time.Millisecond)
 		if e.GlobalVersion() == 30 {
 			return applicationErr
@@ -296,7 +296,7 @@ func TestKeepStartPosition(t *testing.T) {
 	}
 
 	p := eventsourcing.ProjectionHandler{Register: register, Deserializer: json.Unmarshal}
-	r := p.Projection(es.GlobalEvents(0, 1), callbackF)
+	r := p.Projection(es.All(0, 1), callbackF)
 
 	_, err = p.Race(true, r)
 	if err != nil {

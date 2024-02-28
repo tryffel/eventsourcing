@@ -170,8 +170,8 @@ func (e *BBolt) Get(ctx context.Context, id string, aggregateType string, afterV
 	return &iterator{tx: tx, cursor: cursor, startPosition: position(afterVersion)}, nil
 }
 
-// GlobalEvents return count events in order globally from the start posistion
-func (e *BBolt) GlobalEvents(start uint64) (core.Iterator, error) {
+// All iterate over event in GlobalEvents order
+func (e *BBolt) All(start uint64) (core.Iterator, error) {
 	tx, err := e.db.Begin(false)
 	if err != nil {
 		return nil, err

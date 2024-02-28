@@ -88,8 +88,8 @@ func (s *SQL) Get(ctx context.Context, id string, aggregateType string, afterVer
 	return &iterator{rows: rows}, nil
 }
 
-// GlobalEvents
-func (s *SQL) GlobalEvents(start core.Version, count uint64) (core.Iterator, error) {
+// All iterate over all event in GlobalEvents order
+func (s *SQL) All(start core.Version, count uint64) (core.Iterator, error) {
 	selectStm := `Select seq, id, version, reason, type, timestamp, data, metadata from events where seq >= ? order by seq asc LIMIT ?`
 	rows, err := s.db.Query(selectStm, start, count)
 	if err != nil {

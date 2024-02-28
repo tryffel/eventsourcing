@@ -108,7 +108,8 @@ func (e *Memory) globalEvents(start core.Version, count uint64) ([]core.Event, e
 	return events, nil
 }
 
-func (m *Memory) GlobalEvents(start core.Version, count uint64) func() (core.Iterator, error) {
+// All iterate over all event in GlobalEvents order
+func (m *Memory) All(start core.Version, count uint64) func() (core.Iterator, error) {
 	return func() (core.Iterator, error) {
 		events, err := m.globalEvents(start, count)
 		if err != nil {

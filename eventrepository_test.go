@@ -366,7 +366,7 @@ func TestProjectionFromRepo(t *testing.T) {
 
 	var projectedName string
 
-	p := repo.Projections.Projection(es.GlobalEvents(0, 1), func(event eventsourcing.Event) error {
+	p := repo.Projections.Projection(es.All(0, 1), func(event eventsourcing.Event) error {
 		switch e := event.Data().(type) {
 		case *Born:
 			projectedName = e.Name
