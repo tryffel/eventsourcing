@@ -14,15 +14,15 @@ type fetchFunc func() (core.Iterator, error)
 type callbackFunc func(e Event) error
 
 type ProjectionHandler struct {
-	register     *Register // used to map the event types
-	Deserializer DeserializeFunc
-	count        int
+	register *Register // used to map the event types
+	Encoder  encoder
+	count    int
 }
 
-func NewProjectionHandler(register *Register, deserializerFunc DeserializeFunc) *ProjectionHandler {
+func NewProjectionHandler(register *Register, encoder encoder) *ProjectionHandler {
 	return &ProjectionHandler{
-		register:     register,
-		Deserializer: deserializerFunc,
+		register: register,
+		Encoder:  encoder,
 	}
 }
 
@@ -126,14 +126,14 @@ func (p *Projection) RunOnce() (bool, error) {
 		}
 
 		data := f()
-		err = p.handler.Deserializer(event.Data, &data)
+		err = p.handler.Encoder.Deserialize(event.Data, &data)
 		if err != nil {
 			return false, err
 		}
 
 		metadata := make(map[string]interface{})
 		if event.Metadata != nil {
-			err = p.handler.Deserializer(event.Metadata, &metadata)
+			err = p.handler.Encoder.Deserialize(event.Metadata, &metadata)
 			if err != nil {
 				return false, err
 			}

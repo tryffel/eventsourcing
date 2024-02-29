@@ -64,7 +64,7 @@ func NewEventRepository(eventStore core.EventStore) *EventRepository {
 		eventStream: NewEventStream(),
 		register:    register,
 		encoder:     encoder, // Default to JSON encoder
-		Projections: NewProjectionHandler(register, encoder.Deserialize),
+		Projections: NewProjectionHandler(register, encoder),
 	}
 }
 
@@ -72,8 +72,8 @@ func NewEventRepository(eventStore core.EventStore) *EventRepository {
 func (er *EventRepository) Encoder(e encoder) {
 	// set encoder on event repository
 	er.encoder = e
-	// set deserializer from encoder on the projection handler
-	er.Projections.Deserializer = e.Deserialize
+	// set encoder in projection handler
+	er.Projections.Encoder = e
 }
 
 func (er *EventRepository) Register(a aggregate) {
