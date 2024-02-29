@@ -14,9 +14,16 @@ type fetchFunc func() (core.Iterator, error)
 type callbackFunc func(e Event) error
 
 type ProjectionHandler struct {
-	Register     *Register // used to map the event types
+	register     *Register // used to map the event types
 	Deserializer DeserializeFunc
 	count        int
+}
+
+func NewProjectionHandler(register *Register, deserializerFunc DeserializeFunc) *ProjectionHandler {
+	return &ProjectionHandler{
+		register:     register,
+		Deserializer: deserializerFunc,
+	}
 }
 
 type Projection struct {
@@ -110,7 +117,7 @@ func (p *Projection) RunOnce() (bool, error) {
 		}
 
 		// TODO: is only registered events of interest?
-		f, found := p.handler.Register.EventRegistered(event)
+		f, found := p.handler.register.EventRegistered(event)
 		if !found {
 			if p.Strict {
 				return false, fmt.Errorf("event not registered aggregate type: %s, reason: %s, global version: %d, %w", event.AggregateType, event.Reason, event.GlobalVersion, ErrEventNotRegistered)
