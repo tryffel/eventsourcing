@@ -374,73 +374,128 @@ Introduction
 
 ### ProjectionHandler
 
-The Projection handler is the central part where all projections are created. It's available from the event repository by the `eventrepo.Projections` property but can also be created by itself. It hold a pointer to the `Register` that holds all event types and also a `Deserializer` to deserialize the events from the event store back into a `eventsourcing.Event`.
+The Projection handler is the central part where all projections are created. It's available from the event repository by the `eventrepo.Projections` property but can also be created by itself.
 
 ```go
-type ProjectionHandler struct {
-	Register     *Register // used to map the event types
-	Deserializer DeserializeFunc
-}
+// access via the event repositort
+eventRepo := eventsourcing.NewEventRepository(eventstore)
+ph := eventRepo.Projections
+
+// creates without the event repository
+ph := eventsourcing.NewProjectionHandler(register, encoder)
 ```
+
+The projection handler include the event register and an encoder to deserialize events from an event store to an event with application types.
 
 ### Projection
 
-A projection is created from the projections handler via the `Projection(fetchF fetchFunc, callbackF callbackFunc) *Projection` method. It takes a fetchFunc and a callbackFunc and return a pointer to a Projection.
+A projection is created from the projection handler via the `Projection` method. The method takes a fetchFunc and a callbackFunc and return a pointer to a Projection.
 
-The fetchFunc must return a core.Iterator and a error. This is the same return structure that all event stores return when they return events for aggregates.
+```go
+p := ph.Projection(f fetchFunc, c callbackFunc)
+```
+
+The fetchFunc must return a core.Iterator and a error. This is the same signature that all event stores return when they return events.
 
 ```go
 type fetchFunc func() (core.Iterator, error)
 ```
 
-The callbackFunc is called for every iterated event from the fetchFunc. The event is typed and can be handled in the same way as in the `Transition` method on an aggregate.
+The callbackFunc is called for every iterated event from the fetchFunc. The event is typed and can be handled in the same way as in the `Transition` method in an aggregate.
 
 ```go
-type callbackFunc func(e Event) error
+type callbackFunc func(e eventsourcing.Event) error
 ```
 
-Example: Creates a projection that fetch all events from the es event store and handle them in the callbackF.
+Example: Creates a projection that fetch all events from an event store and handle them in the callbackF.
 
 ```go
 p := repo.Projections.Projection(es.All(0, 1), func(event eventsourcing.Event) error {
 	switch e := event.Data().(type) {
 	case *Born:
-		projectedName = e.Name
+		// handle the born event
 	}
 	return nil
 })
 ```
 
+### Run a Projection
+
 A projection can be started in different ways.
 
-- RunOnce
-Fetch events from the event store once and when the iterator.Next() return false it returns. It return true if there were events to iterate.
+#### RunOnce
+
+RunOnce fetch events from the event store once and iterate them. It return true if there were events to iterate otherwise false.
 
 ```go
 RunOnce() (bool, error)
 ```
 
-- RunToEnd
-Fetch event from the event store until there is no more events to retrieve. A context is passed in making it possible to cancel from the outside.
+#### RunToEnd
+
+RunToEnd fetch events from the event store until it reaches the end. A context is passed in making it possible to cancel from the outside.
 
 ```go
 RunToEnd(ctx context.Context) error
 ```
 
-- Run
-Will loop forever util canceled from the outside. When it hits the end of the event stream it will start a timer and sleep the time set in the projection property `Pace`.
+#### Run
+
+Run will run forever until canceled from the outside. When it hits the end of the event stream it will start a timer and sleep the time set in the projection property `Pace`.
 
 ```go
 Run(ctx context.Context) error
 ```
 
-Other properties on the projection are `Strict` and `Name`. `Strict` is default true and will trigger an error if a fetched event is not found in the `Register`. This force all events to be handled in the callbackFunc. `Name` is used to name the projection and can be easy debugging when running multiple projections. The name is default the index of when the projection was created.
+### Projection properties
+
+* Pace - Is used in the Run method to set the pace how often it will poll the event store for new events.
+
+* Strict - Default true and it will trigger an error if a fetched event is not registered in the event `Register`. This force all events to be handled by the callbackFunc.
+
+* Name - The name of the projection. Can be usefull when debugging multiple running projection. The default name is the index it was created from the projection handler.
+
 
 ### Run multiple projections
 
-- Group 
- - Start
- - Close
+#### Group 
 
-- Race
- - RaceResult
+A set of projections can run concurrently in a group. 
+
+```go
+// create three projections
+p1 := ph.Projection(es.All(0, 1), callbackF)
+p2 := ph.Projection(es.All(0, 1), callbackF)
+p3 := ph.Projection(es.All(0, 1), callbackF)
+
+// create a group containg the three projections
+g := ph.Group(p1, p2, p3)
+
+// Start runs all projections and rertun an error channel that the application can subscribe to and be noticed if an error occour in any projection.
+errChan := g.Start()
+
+// Close stops all projections and wait for them to return
+g.Close()
+```
+
+#### Race
+
+The race starts a set of projections and run them to the end of the event stream.
+
+```go
+// create two projections
+ph := eventsourcing.NewProjectionHandler(register, eventsourcing.EncoderJSON{})
+p1 := ph.Projection(es.All(0, 1), callbackF)
+p2 := ph.Projection(es.All(0, 1), callbackF)
+
+// true make the race return on error in any projection
+result, err := p.Race(true, r1, r2)
+
+// The returned result is a slice with the result of all racing projections
+
+type RaceResult struct {
+	Error          error // Is set on error
+	ProjectionName string
+	Event          Event // The last fetched event
+}
+```
