@@ -395,7 +395,7 @@ A _projection_ is created from the projection handler via the `Projection()` met
 p := ph.Projection(f fetchFunc, c callbackFunc)
 ```
 
-The fetchFunc must return a `core.Iterator` and a `error`. This is the same signature that event stores return when they return events.
+The fetchFunc must return `(core.Iterator, error)`, i.e the same signature that event stores return when they return events.
 
 ```go
 type fetchFunc func() (core.Iterator, error)
