@@ -425,7 +425,7 @@ A projection can be started in three different ways.
 
 #### RunOnce
 
-RunOnce fetch events from the event store one time. It return true if there were events to iterate otherwise false.
+RunOnce fetch events from the event store one time. It returns true if there were events to iterate otherwise false.
 
 ```go
 RunOnce() (bool, error)
