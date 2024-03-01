@@ -374,7 +374,7 @@ Introduction
 
 ### ProjectionHandler
 
-The Projection handler is the central part where all projections are created. It's available from the event repository by the `eventrepo.Projections` property but can also be created by itself.
+The Projection handler is the central part where projections are created. It's available from the event repository by the `eventrepo.Projections()` property but can also be created by itself.
 
 ```go
 // access via the event repositort
@@ -385,23 +385,23 @@ ph := eventRepo.Projections
 ph := eventsourcing.NewProjectionHandler(register, encoder)
 ```
 
-The projection handler include the event register and an encoder to deserialize events from an event store to an event with application types.
+The projection handler include the event register and a encoder to deserialize events from an event store to an application event.
 
 ### Projection
 
-A projection is created from the projection handler via the `Projection` method. The method takes a fetchFunc and a callbackFunc and return a pointer to a Projection.
+A projection is created from the projection handler via the `Projection()` method. The method takes a `fetchFunc` and a `callbackFunc` and return a pointer to a Projection.
 
 ```go
 p := ph.Projection(f fetchFunc, c callbackFunc)
 ```
 
-The fetchFunc must return a core.Iterator and a error. This is the same signature that all event stores return when they return events.
+The fetchFunc must return a `core.Iterator` and a `error`. This is the same signature that event stores return when they return events.
 
 ```go
 type fetchFunc func() (core.Iterator, error)
 ```
 
-The callbackFunc is called for every iterated event from the fetchFunc. The event is typed and can be handled in the same way as in the `Transition` method in an aggregate.
+The `callbackFunc` is called for every iterated event. The event is typed and can be handled in the same way as the aggregate `Transition()` method.
 
 ```go
 type callbackFunc func(e eventsourcing.Event) error
@@ -410,10 +410,10 @@ type callbackFunc func(e eventsourcing.Event) error
 Example: Creates a projection that fetch all events from an event store and handle them in the callbackF.
 
 ```go
-p := repo.Projections.Projection(es.All(0, 1), func(event eventsourcing.Event) error {
+p := eventRepo.Projections.Projection(es.All(0, 1), func(event eventsourcing.Event) error {
 	switch e := event.Data().(type) {
 	case *Born:
-		// handle the born event
+		// handle the event
 	}
 	return nil
 })
@@ -421,11 +421,11 @@ p := repo.Projections.Projection(es.All(0, 1), func(event eventsourcing.Event) e
 
 ### Run a Projection
 
-A projection can be started in different ways.
+A projection can be started in three different ways.
 
 #### RunOnce
 
-RunOnce fetch events from the event store once and iterate them. It return true if there were events to iterate otherwise false.
+RunOnce fetch events from the event store one time. It return true if there were events to iterate otherwise false.
 
 ```go
 RunOnce() (bool, error)
@@ -433,7 +433,7 @@ RunOnce() (bool, error)
 
 #### RunToEnd
 
-RunToEnd fetch events from the event store until it reaches the end. A context is passed in making it possible to cancel from the outside.
+RunToEnd fetch events from the event store until it reaches the end of the event stream. A context is passed in making it possible to cancel the projections from the outside.
 
 ```go
 RunToEnd(ctx context.Context) error
@@ -449,7 +449,7 @@ Run(ctx context.Context) error
 
 ### Projection properties
 
-* Pace - Is used in the Run method to set the pace how often it will poll the event store for new events.
+* Pace - Is used in the Run method to set how often the projection will poll the event store for new events.
 
 * Strict - Default true and it will trigger an error if a fetched event is not registered in the event `Register`. This force all events to be handled by the callbackFunc.
 
