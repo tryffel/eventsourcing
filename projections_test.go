@@ -185,10 +185,10 @@ func TestErrorFromCallback(t *testing.T) {
 
 	g := p.Group(r)
 
-	errChan := g.Start()
+	g.Start()
 	defer g.Close()
 
-	err = <-errChan
+	err = <-g.ErrChan
 	if !errors.Is(err, ErrApplication) {
 		if err != nil {
 			t.Fatalf("expected application error but got %s", err.Error())

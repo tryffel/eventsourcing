@@ -42,6 +42,7 @@ type Group struct {
 	projections []*Projection
 	cancelF     context.CancelFunc
 	wg          sync.WaitGroup
+	ErrChan     chan error
 }
 
 // Projection creates a projection that will run down an event stream
@@ -156,12 +157,12 @@ func (ph *ProjectionHandler) Group(projections ...*Projection) *Group {
 		handler:     ph,
 		projections: projections,
 		cancelF:     func() {},
+		ErrChan:     make(chan error),
 	}
 }
 
 // Start starts all projectinos in the group and return a channel to notify if a errors is returned from a projection
-func (g *Group) Start() chan error {
-	errChan := make(chan error)
+func (g *Group) Start() {
 	ctx, cancel := context.WithCancel(context.Background())
 	g.cancelF = cancel
 
@@ -171,11 +172,10 @@ func (g *Group) Start() chan error {
 			defer g.wg.Done()
 			err := p.Run(ctx)
 			if !errors.Is(err, context.Canceled) {
-				errChan <- err
+				g.ErrChan <- err
 			}
 		}(projection)
 	}
-	return errChan
 }
 
 // Close stops all projections in the group
@@ -184,6 +184,9 @@ func (g *Group) Close() {
 
 	// return when all projections has stopped
 	g.wg.Wait()
+
+	// close the error channel
+	close(g.ErrChan)
 }
 
 type RaceResult struct {
