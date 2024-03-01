@@ -374,7 +374,7 @@ Introduction
 
 ### ProjectionHandler
 
-The Projection handler is the central part where projections are created. It's available from the event repository by the `eventrepo.Projections()` property but can also be created by itself.
+The Projection handler is the central part where projections are created. It's available from the event repository by the `eventrepo.Projections()` method but can also be created standalone.
 
 ```go
 // access via the event repositort
