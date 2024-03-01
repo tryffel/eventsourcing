@@ -458,7 +458,15 @@ Run(ctx context.Context) error
 
 #### Group 
 
-A set of projections can run concurrently in a group. 
+A set of projections can run concurrently in a group.
+
+```go
+g := ph.Group(p1, p2, p3)
+```
+
+A group can be started `g.Start()` where each projection will run in a separate go routine. Errors from a projection can be retrieved from a error channel on the group `g.ErrChan`.
+
+The `g.Stop()` method is used to halt all projections in the group.
 
 
 ```go
@@ -467,14 +475,14 @@ p1 := ph.Projection(es.All(0, 1), callbackF)
 p2 := ph.Projection(es.All(0, 1), callbackF)
 p3 := ph.Projection(es.All(0, 1), callbackF)
 
-// create a group containing three projections
+// create a group containing the projections
 g := ph.Group(p1, p2, p3)
 
 // Start runs all projections concurrently
 g.Start()
 
-// Close stops all projections and wait for them to return
-g.Close()
+// Stop terminate all projections and wait for them to return
+g.Stop()
 ```
 
 #### Race

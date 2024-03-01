@@ -138,7 +138,7 @@ func TestRun(t *testing.T) {
 func TestCloseEmptyGroup(t *testing.T) {
 	p := eventsourcing.NewProjectionHandler(eventsourcing.NewRegister(), eventsourcing.EncoderJSON{})
 	g := p.Group()
-	g.Close()
+	g.Stop()
 }
 
 func TestStartMultipleProjections(t *testing.T) {
@@ -158,7 +158,7 @@ func TestStartMultipleProjections(t *testing.T) {
 
 	g := p.Group(r1, r2, r3)
 	g.Start()
-	g.Close()
+	g.Stop()
 }
 
 func TestErrorFromCallback(t *testing.T) {
@@ -186,7 +186,7 @@ func TestErrorFromCallback(t *testing.T) {
 	g := p.Group(r)
 
 	g.Start()
-	defer g.Close()
+	defer g.Stop()
 
 	err = <-g.ErrChan
 	if !errors.Is(err, ErrApplication) {

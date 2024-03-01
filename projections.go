@@ -178,8 +178,8 @@ func (g *Group) Start() {
 	}
 }
 
-// Close stops all projections in the group
-func (g *Group) Close() {
+// Stop terminate all projections in the group
+func (g *Group) Stop() {
 	g.cancelF()
 
 	// return when all projections has stopped
