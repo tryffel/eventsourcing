@@ -381,7 +381,7 @@ The Projection handler is the central part where projections are created. It's a
 eventRepo := eventsourcing.NewEventRepository(eventstore)
 ph := eventRepo.Projections
 
-// creates without the event repository
+// standalone without the event repository
 ph := eventsourcing.NewProjectionHandler(register, encoder)
 ```
 
