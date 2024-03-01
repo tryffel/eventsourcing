@@ -487,7 +487,29 @@ g.Stop()
 
 #### Race
 
-The race starts a set of projections and run them to the end of there event stream.
+The `Race()` method starts a set of projections and run them to the end of there event streams.
+
+```go
+Race(cancelOnError bool, projections ...*Projection) ([]RaceResult, error)
+```
+
+If `cancelOnError` is set to true the race will return if any projection is returning an error. 
+
+The returned `[]RaceResult` is a slice of structs containg each projections result.
+
+* **Error** Is set if the projection returned an error
+* **ProjectionName** Is the name of the projection
+* **Event** The last fetched event (can be useful during debugging)
+
+```go
+type RaceResult struct {
+	Error          error
+	ProjectionName string
+	Event          Event
+}
+```
+
+Race example:
 
 ```go
 // create two projections
@@ -497,12 +519,4 @@ p2 := ph.Projection(es.All(0, 1), callbackF)
 
 // true make the race return on error in any projection
 result, err := p.Race(true, r1, r2)
-
-// The returned result is a slice with the result of all racing projections
-
-type RaceResult struct {
-	Error          error // Is set on error
-	ProjectionName string
-	Event          Event // The last fetched event
-}
 ```
