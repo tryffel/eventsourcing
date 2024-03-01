@@ -389,7 +389,7 @@ The projection handler include the event register and a encoder to deserialize e
 
 ### Projection
 
-A projection is created from the projection handler via the `Projection()` method. The method takes a `fetchFunc` and a `callbackFunc` and return a pointer to a Projection.
+A _projection_ is created from the projection handler via the `Projection()` method. The method takes a `fetchFunc` and a `callbackFunc` and returns a pointer to a Projection.
 
 ```go
 p := ph.Projection(f fetchFunc, c callbackFunc)
