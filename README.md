@@ -469,7 +469,7 @@ p3 := ph.Projection(es.All(0, 1), callbackF)
 // create a group containg the three projections
 g := ph.Group(p1, p2, p3)
 
-// Start runs all projections and rertun an error channel that the application can subscribe to and be noticed if an error occour in any projection.
+// Start runs all projections and returns an error channel that the application can subscribe to and be noticed if an error occur in any projection.
 errChan := g.Start()
 
 // Close stops all projections and wait for them to return
