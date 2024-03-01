@@ -374,7 +374,7 @@ Introduction
 
 ### ProjectionHandler
 
-The Projection handler is the central part where projections are created. It's available from the event repository by the `eventrepo.Projections()` method but can also be created standalone.
+The Projection handler is the central part where projections are created. It's available from the event repository by the `eventrepo.Projections` property but can also be created standalone.
 
 ```go
 // access via the event repositort
@@ -460,13 +460,14 @@ Run(ctx context.Context) error
 
 A set of projections can run concurrently in a group. 
 
+
 ```go
 // create three projections
 p1 := ph.Projection(es.All(0, 1), callbackF)
 p2 := ph.Projection(es.All(0, 1), callbackF)
 p3 := ph.Projection(es.All(0, 1), callbackF)
 
-// create a group containg the three projections
+// create a group containing three projections
 g := ph.Group(p1, p2, p3)
 
 // Start runs all projections and returns an error channel that the application can subscribe to and be noticed if an error occur in any projection.
@@ -478,7 +479,7 @@ g.Close()
 
 #### Race
 
-The race starts a set of projections and run them to the end of the event stream.
+The race starts a set of projections and run them to the end of there event stream.
 
 ```go
 // create two projections
