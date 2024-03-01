@@ -449,11 +449,9 @@ Run(ctx context.Context) error
 
 ### Projection properties
 
-* Pace - Is used in the Run method to set how often the projection will poll the event store for new events.
-
-* Strict - Default true and it will trigger an error if a fetched event is not registered in the event `Register`. This force all events to be handled by the callbackFunc.
-
-* Name - The name of the projection. Can be usefull when debugging multiple running projection. The default name is the index it was created from the projection handler.
+* **Pace** - Is used in the Run method to set how often the projection will poll the event store for new events.
+* **Strict** - Default true and it will trigger an error if a fetched event is not registered in the event `Register`. This force all events to be handled by the callbackFunc.
+* **Name** - The name of the projection. Can be useful when debugging multiple running projection. The default name is the index it was created from the projection handler.
 
 
 ### Run multiple projections
