@@ -385,11 +385,11 @@ ph := eventRepo.Projections
 ph := eventsourcing.NewProjectionHandler(register, encoder)
 ```
 
-The projection handler include the event register and a encoder to deserialize events from an event store to an application event.
+The projection handler include the event register and a encoder to deserialize events from an event store to application event.
 
 ### Projection
 
-A _projection_ is created from the projection handler via the `Projection()` method. The method takes a `fetchFunc` and a `callbackFunc` and returns a pointer to a Projection.
+A _projection_ is created from the projection handler via the `Projection()` method. The method takes a `fetchFunc` and a `callbackFunc` and returns a pointer to the projection.
 
 ```go
 p := ph.Projection(f fetchFunc, c callbackFunc)
@@ -401,7 +401,7 @@ The fetchFunc must return `(core.Iterator, error)`, i.e the same signature that 
 type fetchFunc func() (core.Iterator, error)
 ```
 
-The `callbackFunc` is called for every iterated event. The event is typed and can be handled in the same way as the aggregate `Transition()` method.
+The `callbackFunc` is called for every iterated event inside the projection. The event is typed and can be handled in the same way as the aggregate `Transition()` method.
 
 ```go
 type callbackFunc func(e eventsourcing.Event) error
@@ -419,7 +419,7 @@ p := eventRepo.Projections.Projection(es.All(0, 1), func(event eventsourcing.Eve
 })
 ```
 
-### Run a Projection
+### Projection execution
 
 A projection can be started in three different ways.
 
@@ -456,6 +456,7 @@ type ProjectionResult struct {
 	Event          Event
 }
 ```
+
 * **Error** Is set if the projection returned an error
 * **ProjectionName** Is the name of the projection
 * **Event** The last fetched event (can be useful during debugging)
