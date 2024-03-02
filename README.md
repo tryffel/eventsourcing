@@ -464,10 +464,9 @@ A set of projections can run concurrently in a group.
 g := ph.Group(p1, p2, p3)
 ```
 
-A group is started with `g.Start()` where each projection will run in a separate go routine. Errors from a projection can be retrieved from a result channel `g.ErrChan`.
+A group is started with `g.Start()` where each projection will run in a separate go routine. Errors from a projection can be retrieved from a error channel `g.ErrChan`.
 
-The `g.Stop()` method is used to halt all projections in the group.
-
+The `g.Stop()` method is used to halt all projections in the group and it returns when all projections has stopped.
 
 ```go
 // create three projections
@@ -487,17 +486,16 @@ defer g.Stop()
 // handling error in projection or termination from outside
 select {
 	case result := <-g.ErrChan:
-		// handle the result result.Error
-		
+		// handle the result that will have an error in the result.Error
 	case <-doneChan:
-		// signal from the out side
+		// stop signal from the out side
 		return
 }
 ```
 
 #### Race
 
-Compared to a group the race is a one shot operation. Instead of fetching events continuiosly it's used to iterate all existing events and then stop.
+Compared to a group the race is a one shot operation. Instead of fetching events ontinuously it's used to iterate all existing events and then return.
 
 The `Race()` method starts a set of projections and run them to the end of there event streams.
 
