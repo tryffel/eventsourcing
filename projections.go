@@ -172,7 +172,8 @@ func (ph *ProjectionHandler) Group(projections ...*Projection) *Group {
 	}
 }
 
-// Start starts all projectinos in the group and return a channel to notify if a errors is returned from a projection
+// Start starts all projectinos in the group, an error channel i created on the group to notify
+// if a result containing an error is returned from a projection
 func (g *Group) Start() {
 	ctx, cancel := context.WithCancel(context.Background())
 	g.cancelF = cancel
@@ -203,14 +204,14 @@ func (g *Group) Stop() {
 // Race runs the projections to the end of the events streams.
 // Can be used on a stale event stream with no more events coming in or when you want to know when all projections are done.
 func (p *ProjectionHandler) Race(cancelOnError bool, projections ...*Projection) ([]ProjectionResult, error) {
+	var lock sync.Mutex
+	var causingErr error
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	wg := sync.WaitGroup{}
 	wg.Add(len(projections))
-
-	var lock sync.Mutex
-	var causingErr error
 
 	results := make([]ProjectionResult, len(projections))
 	for i, projection := range projections {
