@@ -428,7 +428,7 @@ A projection can be started in three different ways.
 RunOnce fetch events from the event store one time. It returns true if there were events to iterate otherwise false.
 
 ```go
-RunOnce() (bool, Result)
+RunOnce() (bool, ProjectionResult)
 ```
 
 #### RunToEnd
@@ -436,7 +436,7 @@ RunOnce() (bool, Result)
 RunToEnd fetch events from the event store until it reaches the end of the event stream. A context is passed in making it possible to cancel the projections from the outside.
 
 ```go
-RunToEnd(ctx context.Context) Result
+RunToEnd(ctx context.Context) ProjectionResult
 ```
 
 #### Run
@@ -444,15 +444,29 @@ RunToEnd(ctx context.Context) Result
 Run will run forever until canceled from the outside. When it hits the end of the event stream it will start a timer and sleep the time set in the projection property `Pace`.
 
 ```go
-Run(ctx context.Context) Result
+Run(ctx context.Context) ProjectionResult
 ```
 
+All run methods return a ProjectionResult.
+
+```go
+type ProjectionResult struct {
+	Error          error
+	ProjectionName string
+	Event          Event
+}
+```
+* **Error** Is set if the projection returned an error
+* **ProjectionName** Is the name of the projection
+* **Event** The last fetched event (can be useful during debugging)
+
 ### Projection properties
+
+A projection have a set of properties that can affect it's behaivior.
 
 * **Pace** - Is used in the Run method to set how often the projection will poll the event store for new events.
 * **Strict** - Default true and it will trigger an error if a fetched event is not registered in the event `Register`. This force all events to be handled by the callbackFunc.
 * **Name** - The name of the projection. Can be useful when debugging multiple running projection. The default name is the index it was created from the projection handler.
-
 
 ### Run multiple projections
 
@@ -495,29 +509,17 @@ select {
 
 #### Race
 
-Compared to a group the race is a one shot operation. Instead of fetching events ontinuously it's used to iterate all existing events and then return.
+Compared to a group the race is a one shot operation. Instead of fetching events continuously it's used to iterate and process all existing events and then return.
 
-The `Race()` method starts a set of projections and run them to the end of there event streams.
-
-```go
-Race(cancelOnError bool, projections ...*Projection) ([]RaceResult, error)
-```
-
-If `cancelOnError` is set to true the race will return if any projection is returning an error. 
-
-The returned `[]RaceResult` is a slice of structs containg each projections result.
-
-* **Error** Is set if the projection returned an error
-* **ProjectionName** Is the name of the projection
-* **Event** The last fetched event (can be useful during debugging)
+The `Race()` method starts the projections and run them to the end of there event streams. When all projections are finished the method return.
 
 ```go
-type RaceResult struct {
-	Error          error
-	ProjectionName string
-	Event          Event
-}
+Race(cancelOnError bool, projections ...*Projection) ([]ProjectionResult, error)
 ```
+
+If `cancelOnError` is set to true the method will halt all projections and return if any projection is returning an error.
+
+The returned `[]ProjectionResult` is a collection of all projection results.
 
 Race example:
 
