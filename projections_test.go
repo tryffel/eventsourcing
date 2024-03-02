@@ -188,7 +188,12 @@ func TestErrorFromCallback(t *testing.T) {
 	g.Start()
 	defer g.Stop()
 
-	err = <-g.ErrChan
+	select {
+	case err = <-g.ErrChan:
+	case <-time.After(time.Second):
+		t.Fatal("test timed out")
+	}
+
 	if !errors.Is(err, ErrApplication) {
 		if err != nil {
 			t.Fatalf("expected application error but got %s", err.Error())
