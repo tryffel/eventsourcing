@@ -71,8 +71,8 @@ func TestRunOnce(t *testing.T) {
 	})
 
 	// should set projectedName to kalle
-	work, err := proj.RunOnce()
-	if err != nil {
+	work, result := proj.RunOnce()
+	if result.Error != nil {
 		t.Fatal(err)
 	}
 
@@ -84,8 +84,8 @@ func TestRunOnce(t *testing.T) {
 	}
 
 	// should set the projected name to anka
-	work, err = proj.RunOnce()
-	if err != nil {
+	work, result = proj.RunOnce()
+	if result.Error != nil {
 		t.Fatal(err)
 	}
 
@@ -125,8 +125,8 @@ func TestRun(t *testing.T) {
 	defer cancel()
 
 	// will run once then sleep 10 seconds
-	err = proj.Run(ctx)
-	if !errors.Is(err, context.DeadlineExceeded) {
+	result := proj.Run(ctx)
+	if !errors.Is(result.Error, context.DeadlineExceeded) {
 		t.Fatal(err)
 	}
 
@@ -188,13 +188,15 @@ func TestErrorFromCallback(t *testing.T) {
 	g.Start()
 	defer g.Stop()
 
+	var result eventsourcing.ProjectionResult
+
 	select {
-	case err = <-g.ErrChan:
+	case result = <-g.ErrChan:
 	case <-time.After(time.Second):
 		t.Fatal("test timed out")
 	}
 
-	if !errors.Is(err, ErrApplication) {
+	if !errors.Is(result.Error, ErrApplication) {
 		if err != nil {
 			t.Fatalf("expected application error but got %s", err.Error())
 		}
@@ -218,8 +220,8 @@ func TestStrict(t *testing.T) {
 		return nil
 	})
 
-	_, err = proj.RunOnce()
-	if !errors.Is(err, eventsourcing.ErrEventNotRegistered) {
+	_, result := proj.RunOnce()
+	if !errors.Is(result.Error, eventsourcing.ErrEventNotRegistered) {
 		t.Fatalf("expected ErrEventNotRegistered got %q", err.Error())
 	}
 }
@@ -262,12 +264,12 @@ func TestRace(t *testing.T) {
 
 	// projection 0 should have a context.Canceled error
 	if !errors.Is(result[0].Error, context.Canceled) {
-		t.Fatalf("expected projection %q to have err 'context.Canceled' got %v", result[0].ProjectionName, result[0].Error)
+		t.Fatalf("expected projection %q to have err 'context.Canceled' got %v", result[0].Name, result[0].Error)
 	}
 
 	// projection 1 should have a applicationErr error
 	if !errors.Is(result[1].Error, applicationErr) {
-		t.Fatalf("expected projection %q to have err 'applicationErr' got %v", result[1].ProjectionName, result[1].Error)
+		t.Fatalf("expected projection %q to have err 'applicationErr' got %v", result[1].Name, result[1].Error)
 	}
 
 	// projection 1 should have halted on event with GlobalVersion 30

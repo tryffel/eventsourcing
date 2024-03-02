@@ -428,7 +428,7 @@ A projection can be started in three different ways.
 RunOnce fetch events from the event store one time. It returns true if there were events to iterate otherwise false.
 
 ```go
-RunOnce() (bool, error)
+RunOnce() (bool, Result)
 ```
 
 #### RunToEnd
@@ -436,7 +436,7 @@ RunOnce() (bool, error)
 RunToEnd fetch events from the event store until it reaches the end of the event stream. A context is passed in making it possible to cancel the projections from the outside.
 
 ```go
-RunToEnd(ctx context.Context) error
+RunToEnd(ctx context.Context) Result
 ```
 
 #### Run
@@ -444,7 +444,7 @@ RunToEnd(ctx context.Context) error
 Run will run forever until canceled from the outside. When it hits the end of the event stream it will start a timer and sleep the time set in the projection property `Pace`.
 
 ```go
-Run(ctx context.Context) error
+Run(ctx context.Context) Result
 ```
 
 ### Projection properties
@@ -464,7 +464,7 @@ A set of projections can run concurrently in a group.
 g := ph.Group(p1, p2, p3)
 ```
 
-A group is started with `g.Start()` where each projection will run in a separate go routine. Errors from a projection can be retrieved from a error channel `g.ErrChan`.
+A group is started with `g.Start()` where each projection will run in a separate go routine. Errors from a projection can be retrieved from a result channel `g.ErrChan`.
 
 The `g.Stop()` method is used to halt all projections in the group.
 
@@ -486,8 +486,9 @@ defer g.Stop()
 
 // handling error in projection or termination from outside
 select {
-	case err = <-g.ErrChan:
-		// handle err
+	case result := <-g.ErrChan:
+		// handle the result result.Error
+		
 	case <-doneChan:
 		// signal from the out side
 		return
@@ -495,6 +496,8 @@ select {
 ```
 
 #### Race
+
+Compared to a group the race is a one shot operation. Instead of fetching events continuiosly it's used to iterate all existing events and then stop.
 
 The `Race()` method starts a set of projections and run them to the end of there event streams.
 
