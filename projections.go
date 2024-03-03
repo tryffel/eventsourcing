@@ -31,7 +31,7 @@ type Projection struct {
 	callbackF callbackFunc
 	handler   *ProjectionHandler
 	Pace      time.Duration // Pace is used when a projection is running and it reaches the end of the event stream
-	Strict    bool          // Strict indicate if the projection should return error if the event it fetches is not found in the regiter
+	Strict    bool          // Strict indicate if the projection should return error if the event it fetches is not found in the register
 	Name      string
 }
 
