@@ -83,7 +83,6 @@ func (p *Projection) Run(ctx context.Context) ProjectionResult {
 				return result
 			}
 		}
-		// rest
 		timer.Reset(p.Pace)
 	}
 }
