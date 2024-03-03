@@ -249,7 +249,7 @@ func TestRace(t *testing.T) {
 	r1 := p.Projection(es.All(0, 1), callbackF)
 	r2 := p.Projection(es.All(0, 1), func(e eventsourcing.Event) error {
 		time.Sleep(time.Millisecond)
-		if e.GlobalVersion() == 30 {
+		if e.GlobalVersion() == 31 {
 			return applicationErr
 		}
 		return nil
@@ -273,8 +273,8 @@ func TestRace(t *testing.T) {
 	}
 
 	// projection 1 should have halted on event with GlobalVersion 30
-	if result[1].Event.GlobalVersion() != 30 {
-		t.Fatalf("expected projection 1 Event.GlobalVersion() to be 30 but was %d", result[1].Event.GlobalVersion())
+	if result[1].LastHandledEvent.GlobalVersion() != 30 {
+		t.Fatalf("expected projection 1 Event.GlobalVersion() to be 30 but was %d", result[1].LastHandledEvent.GlobalVersion())
 	}
 }
 

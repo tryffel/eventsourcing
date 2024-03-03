@@ -451,15 +451,15 @@ All run methods return a ProjectionResult.
 
 ```go
 type ProjectionResult struct {
-	Error          error
-	ProjectionName string
-	Event          Event
+	Error          		error
+	ProjectionName 		string
+	LastHandledEvent	Event
 }
 ```
 
 * **Error** Is set if the projection returned an error
 * **ProjectionName** Is the name of the projection
-* **Event** The last fetched event (can be useful during debugging)
+* **LastHandledEvent** The last successfully handled event (can be useful during debugging)
 
 ### Projection properties
 

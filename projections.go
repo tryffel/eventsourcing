@@ -46,9 +46,9 @@ type Group struct {
 
 // ProjectionResult is the return type for a Group and Race
 type ProjectionResult struct {
-	Error error
-	Name  string
-	Event Event
+	Error            error
+	Name             string
+	LastHandledEvent Event
 }
 
 // Projection creates a projection that will run down an event stream
@@ -76,7 +76,7 @@ func (p *Projection) Run(ctx context.Context) ProjectionResult {
 			if !timer.Stop() {
 				<-timer.C
 			}
-			return ProjectionResult{Error: ctx.Err(), Name: result.Name, Event: result.Event}
+			return ProjectionResult{Error: ctx.Err(), Name: result.Name, LastHandledEvent: result.LastHandledEvent}
 		case <-timer.C:
 			result = p.RunToEnd(ctx)
 			if result.Error != nil {
@@ -91,12 +91,18 @@ func (p *Projection) Run(ctx context.Context) ProjectionResult {
 // RunToEnd runs until the projection reaches the end of the event stream
 func (p *Projection) RunToEnd(ctx context.Context) ProjectionResult {
 	var result ProjectionResult
+	var lastHandledEvent Event
+
 	for {
 		select {
 		case <-ctx.Done():
-			return ProjectionResult{Error: ctx.Err(), Name: result.Name, Event: result.Event}
+			return ProjectionResult{Error: ctx.Err(), Name: result.Name, LastHandledEvent: result.LastHandledEvent}
 		default:
 			ran, result := p.RunOnce()
+			// if the first event returned error or if it did not run at all
+			if result.LastHandledEvent.GlobalVersion() == 0 {
+				result.LastHandledEvent = lastHandledEvent
+			}
 			if result.Error != nil {
 				return result
 			}
@@ -104,6 +110,7 @@ func (p *Projection) RunToEnd(ctx context.Context) ProjectionResult {
 			if !ran {
 				return result
 			}
+			lastHandledEvent = result.LastHandledEvent
 		}
 	}
 }
@@ -112,11 +119,11 @@ func (p *Projection) RunToEnd(ctx context.Context) ProjectionResult {
 func (p *Projection) RunOnce() (bool, ProjectionResult) {
 	// ran indicate if there were events to fetch
 	var ran bool
-	var eventRecord Event
+	var lastHandledEvent Event
 
 	iterator, err := p.fetchF()
 	if err != nil {
-		return false, ProjectionResult{Error: err, Name: p.Name, Event: eventRecord}
+		return false, ProjectionResult{Error: err, Name: p.Name, LastHandledEvent: lastHandledEvent}
 	}
 	defer iterator.Close()
 
@@ -124,7 +131,7 @@ func (p *Projection) RunOnce() (bool, ProjectionResult) {
 		ran = true
 		event, err := iterator.Value()
 		if err != nil {
-			return false, ProjectionResult{Error: err, Name: p.Name, Event: eventRecord}
+			return false, ProjectionResult{Error: err, Name: p.Name, LastHandledEvent: lastHandledEvent}
 		}
 
 		// TODO: is only registered events of interest?
@@ -132,7 +139,7 @@ func (p *Projection) RunOnce() (bool, ProjectionResult) {
 		if !found {
 			if p.Strict {
 				err = fmt.Errorf("event not registered aggregate type: %s, reason: %s, global version: %d, %w", event.AggregateType, event.Reason, event.GlobalVersion, ErrEventNotRegistered)
-				return false, ProjectionResult{Error: err, Name: p.Name, Event: eventRecord}
+				return false, ProjectionResult{Error: err, Name: p.Name, LastHandledEvent: lastHandledEvent}
 			}
 			continue
 		}
@@ -140,26 +147,26 @@ func (p *Projection) RunOnce() (bool, ProjectionResult) {
 		data := f()
 		err = p.handler.Encoder.Deserialize(event.Data, &data)
 		if err != nil {
-			return false, ProjectionResult{Error: err, Name: p.Name, Event: eventRecord}
+			return false, ProjectionResult{Error: err, Name: p.Name, LastHandledEvent: lastHandledEvent}
 		}
 
 		metadata := make(map[string]interface{})
 		if event.Metadata != nil {
 			err = p.handler.Encoder.Deserialize(event.Metadata, &metadata)
 			if err != nil {
-				return false, ProjectionResult{Error: err, Name: p.Name, Event: eventRecord}
+				return false, ProjectionResult{Error: err, Name: p.Name, LastHandledEvent: lastHandledEvent}
 			}
 		}
 		e := NewEvent(event, data, metadata)
 
-		// keep a reference to the event currently processing
-		eventRecord = e
 		err = p.callbackF(e)
 		if err != nil {
-			return false, ProjectionResult{Error: err, Name: p.Name, Event: eventRecord}
+			return false, ProjectionResult{Error: err, Name: p.Name, LastHandledEvent: lastHandledEvent}
 		}
+		// keep a reference to the last successfully handled event
+		lastHandledEvent = e
 	}
-	return ran, ProjectionResult{Error: nil, Name: p.Name, Event: eventRecord}
+	return ran, ProjectionResult{Error: nil, Name: p.Name, LastHandledEvent: lastHandledEvent}
 }
 
 // Group runs a group of projections concurrently
