@@ -14,7 +14,7 @@ type fetchFunc func() (core.Iterator, error)
 type callbackFunc func(e Event) error
 
 type ProjectionHandler struct {
-	register *Register // used to map the event types
+	register *Register
 	Encoder  encoder
 	count    int
 }
