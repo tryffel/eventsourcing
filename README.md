@@ -368,9 +368,11 @@ func (s *snapshot) DeserializeSnapshot(m eventsourcing.DeserializeFunc, b []byte
 }
 ```
 
-## Projections - Work in progress
+## Projections
 
-Introduction
+Projections is a pattern used to build read-models that are based on events.
+
+If you want more background information on projections check out Derek Comartin projections article [Projections in Event Sourcing: Build ANY model you want!](https://codeopinion.com/projections-in-event-sourcing-build-any-model-you-want/) or Martin Fowler's [CQRS](https://martinfowler.com/bliki/CQRS.html).
 
 ### ProjectionHandler
 
