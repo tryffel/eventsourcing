@@ -349,3 +349,33 @@ func (person *PersonNoRegisterEvents) Transition(event eventsourcing.Event) {
 // Register bind the events to the repository when the aggregate is registered.
 func (person *PersonNoRegisterEvents) Register(f eventsourcing.RegisterFunc) {
 }
+
+func TestProjectionFromRepo(t *testing.T) {
+	es := memory.Create()
+	repo := eventsourcing.NewEventRepository(es)
+	repo.Register(&Person{})
+
+	person, err := CreatePerson("kalle")
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = repo.Save(person)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var projectedName string
+
+	p := repo.Projections.Projection(es.All(0, 1), func(event eventsourcing.Event) error {
+		switch e := event.Data().(type) {
+		case *Born:
+			projectedName = e.Name
+		}
+		return nil
+	})
+	p.RunOnce()
+
+	if projectedName != "kalle" {
+		t.Fatalf("expected projectedName to be kalle was %q", projectedName)
+	}
+}

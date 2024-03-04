@@ -367,3 +367,171 @@ func (s *snapshot) DeserializeSnapshot(m eventsourcing.DeserializeFunc, b []byte
 	return nil
 }
 ```
+
+## Projections
+
+Projections is a way to build read-models based on events. A read-model is way to expose data from events in a different form. Where the form is optimized for read-only queries.
+
+If you want more background on projections check out Derek Comartin projections article [Projections in Event Sourcing: Build ANY model you want!](https://codeopinion.com/projections-in-event-sourcing-build-any-model-you-want/) or Martin Fowler's [CQRS](https://martinfowler.com/bliki/CQRS.html).
+
+### Projection Handler
+
+The Projection handler is the central part where projections are created. It's available from the event repository by the `eventrepo.Projections` property but can also be created standalone.
+
+```go
+// access via the event repository
+eventRepo := eventsourcing.NewEventRepository(eventstore)
+ph := eventRepo.Projections
+
+// standalone without the event repository
+ph := eventsourcing.NewProjectionHandler(register, encoder)
+```
+
+The projection handler include the event register and a encoder to deserialize events from an event store to application event.
+
+### Projection
+
+A _projection_ is created from the projection handler via the `Projection()` method. The method takes a `fetchFunc` and a `callbackFunc` and returns a pointer to the projection.
+
+```go
+p := ph.Projection(f fetchFunc, c callbackFunc)
+```
+
+The fetchFunc must return `(core.Iterator, error)`, i.e the same signature that event stores return when they return events.
+
+```go
+type fetchFunc func() (core.Iterator, error)
+```
+
+The `callbackFunc` is called for every iterated event inside the projection. The event is typed and can be handled in the same way as the aggregate `Transition()` method.
+
+```go
+type callbackFunc func(e eventsourcing.Event) error
+```
+
+Example: Creates a projection that fetch all events from an event store and handle them in the callbackF.
+
+```go
+p := eventRepo.Projections.Projection(es.All(0, 1), func(event eventsourcing.Event) error {
+	switch e := event.Data().(type) {
+	case *Born:
+		// handle the event
+	}
+	return nil
+})
+```
+
+### Projection execution
+
+A projection can be started in three different ways.
+
+#### RunOnce
+
+RunOnce fetch events from the event store one time. It returns true if there were events to iterate otherwise false.
+
+```go
+RunOnce() (bool, ProjectionResult)
+```
+
+#### RunToEnd
+
+RunToEnd fetch events from the event store until it reaches the end of the event stream. A context is passed in making it possible to cancel the projections from the outside.
+
+```go
+RunToEnd(ctx context.Context) ProjectionResult
+```
+
+#### Run
+
+Run will run forever until canceled from the outside. When it hits the end of the event stream it will start a timer and sleep the time set in the projection property `Pace`.
+
+```go
+Run(ctx context.Context) ProjectionResult
+```
+
+All run methods return a ProjectionResult.
+
+```go
+type ProjectionResult struct {
+	Error          		error
+	ProjectionName 		string
+	LastHandledEvent	Event
+}
+```
+
+* **Error** Is set if the projection returned an error
+* **ProjectionName** Is the name of the projection
+* **LastHandledEvent** The last successfully handled event (can be useful during debugging)
+
+### Projection properties
+
+A projection have a set of properties that can affect it's behaivior.
+
+* **Pace** - Is used in the Run method to set how often the projection will poll the event store for new events.
+* **Strict** - Default true and it will trigger an error if a fetched event is not registered in the event `Register`. This force all events to be handled by the callbackFunc.
+* **Name** - The name of the projection. Can be useful when debugging multiple running projection. The default name is the index it was created from the projection handler.
+
+### Run multiple projections
+
+#### Group 
+
+A set of projections can run concurrently in a group.
+
+```go
+g := ph.Group(p1, p2, p3)
+```
+
+A group is started with `g.Start()` where each projection will run in a separate go routine. Errors from a projection can be retrieved from a error channel `g.ErrChan`.
+
+The `g.Stop()` method is used to halt all projections in the group and it returns when all projections has stopped.
+
+```go
+// create three projections
+p1 := ph.Projection(es.All(0, 1), callbackF)
+p2 := ph.Projection(es.All(0, 1), callbackF)
+p3 := ph.Projection(es.All(0, 1), callbackF)
+
+// create a group containing the projections
+g := ph.Group(p1, p2, p3)
+
+// Start runs all projections concurrently
+g.Start()
+
+// Stop terminate all projections and wait for them to return
+defer g.Stop()
+
+// handling error in projection or termination from outside
+select {
+	case result := <-g.ErrChan:
+		// handle the result that will have an error in the result.Error
+	case <-doneChan:
+		// stop signal from the out side
+		return
+}
+```
+
+#### Race
+
+Compared to a group the race is a one shot operation. Instead of fetching events continuously it's used to iterate and process all existing events and then return.
+
+The `Race()` method starts the projections and run them to the end of there event streams. When all projections are finished the method return.
+
+```go
+Race(cancelOnError bool, projections ...*Projection) ([]ProjectionResult, error)
+```
+
+If `cancelOnError` is set to true the method will halt all projections and return if any projection is returning an error.
+
+The returned `[]ProjectionResult` is a collection of all projection results.
+
+Race example:
+
+```go
+// create two projections
+ph := eventsourcing.NewProjectionHandler(register, eventsourcing.EncoderJSON{})
+p1 := ph.Projection(es.All(0, 1), callbackF)
+p2 := ph.Projection(es.All(0, 1), callbackF)
+
+// true make the race return on error in any projection
+result, err := p.Race(true, r1, r2)
+```
