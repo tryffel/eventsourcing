@@ -191,12 +191,16 @@ Save(events []core.Event) error
 Get(id string, aggregateType string, afterVersion core.Version) (core.Iterator, error)
 ```
 
-Currently, there are three implementations.
+Currently, there are three internal implementations.
 
 * SQL
 * Bolt
 * Event Store DB
 * RAM Memory
+
+And one external.
+
+* [DynamoDB](https://github.com/fd1az/dynamo-es) by [fd1az](https://github.com/fd1az)
 
 Post release v0.0.7 event stores `bbolt`, `sql` and `esdb` are their own submodules.
 This reduces the dependency graph of the `github.com/hallgren/eventsourcing` module, as each submodule contains their own dependencies not pollute the main module.
