@@ -191,26 +191,16 @@ Save(events []core.Event) error
 Get(id string, aggregateType string, afterVersion core.Version) (core.Iterator, error)
 ```
 
-Currently, there are three internal implementations.
+Currently, there are four internal implementations.
 
-* SQL
-* Bolt
-* Event Store DB
-* RAM Memory
+* SQL - `go get github.com/hallgren/eventsourcing/eventstore/sql`
+* Bolt - `go get github.com/hallgren/eventsourcing/eventstore/bbolt`
+* Event Store DB - `go get github.com/hallgren/eventsourcing/eventstore/esdb`
+* RAM Memory - part of the main module
 
 And one external.
 
 * [DynamoDB](https://github.com/fd1az/dynamo-es) by [fd1az](https://github.com/fd1az)
-
-Post release v0.0.7 event stores `bbolt`, `sql` and `esdb` are their own submodules.
-This reduces the dependency graph of the `github.com/hallgren/eventsourcing` module, as each submodule contains their own dependencies not pollute the main module.
-Submodules needs to be fetched separately via go get.
-
-`go get github.com/hallgren/eventsourcing/eventstore/sql`  
-`go get github.com/hallgren/eventsourcing/eventstore/bbolt`
-`go get github.com/hallgren/eventsourcing/eventstore/esdb`
-
-The memory based event store is part of the main module and does not need to be fetched separately.
 
 ### Custom event store
 
