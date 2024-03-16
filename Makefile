@@ -1,14 +1,20 @@
-fmt:
-	find . -type f -name go.mod \
-		-execdir go fmt ./... \;
+all:
+	go fmt ./...
+	go build
 
+	#core
+	cd core && go build
+	# event stores
+	cd eventstore/bbolt && go build
+	cd eventstore/sql && go build
+	cd eventstore/esdb && go build
 test:
-	find . -type f -name go.mod | \
-		sed 's/go\.mod/.../g' | \
-		xargs -n 1 go test
+	#core
+	cd core && go test -count 1 ./...
+	# event stores
+	cd eventstore/bbolt && go test -count 1 ./...
+	cd eventstore/sql && go test -count 1 ./...
+	cd eventstore/esdb && go test esdb_test.go -count 1 ./...
 
-build: fmt test
-	find . -type f -name go.mod  -exec dirname '{}' ';' | \
-		xargs -n 1 go build -C
-
-all: fmt build test
+	# main
+	go test -count 1 ./...
