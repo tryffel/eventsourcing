@@ -1,10 +1,11 @@
-[![Build Status](https://travis-ci.org/hallgren/eventsourcing.svg?branch=master)](https://travis-ci.org/hallgren/eventsourcing)
-[![Go Report Card](https://goreportcard.com/badge/github.com/hallgren/eventsourcing)](https://goreportcard.com/report/github.com/hallgren/eventsourcing)
-[![codecov](https://codecov.io/gh/hallgren/eventsourcing/branch/master/graph/badge.svg)](https://codecov.io/gh/hallgren/eventsourcing)
-
 # Overview
 
-This package is an experiment to try to generialize [@jen20's](https://github.com/jen20) way of implementing event sourcing. You can find the original blog post [here](https://jen20.dev/post/event-sourcing-in-go/) and github repo [here](https://github.com/jen20/go-event-sourcing-sample).
+This set of modules is a post implementation of [@jen20's](https://github.com/jen20) way of implementing event sourcing. You can find the original blog post [here](https://jen20.dev/post/event-sourcing-in-go/) and github repo [here](https://github.com/jen20/go-event-sourcing-sample).
+
+It's structured in two main parts:
+
+* [Event Sourcing](https://github.com/hallgren/eventsourcing?tab=readme-ov-file#event-sourcing) - Model and create events (write side).
+* [Projections](https://github.com/hallgren/eventsourcing?tab=readme-ov-file#projections) - Create read-models based on the events (read site).
 
 ## Event Sourcing
 
