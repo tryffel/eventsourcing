@@ -5,7 +5,7 @@ This set of modules is a post implementation of [@jen20's](https://github.com/je
 It's structured in two main parts:
 
 * [Event Sourcing](https://github.com/hallgren/eventsourcing?tab=readme-ov-file#event-sourcing) - Model and create events (write side).
-* [Projections](https://github.com/hallgren/eventsourcing?tab=readme-ov-file#projections) - Create read-models based on the events (read site).
+* [Projections](https://github.com/hallgren/eventsourcing?tab=readme-ov-file#projections) - Create read-models based on the events (read side).
 
 ## Event Sourcing
 
