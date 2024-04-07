@@ -1,6 +1,6 @@
 module github.com/hallgren/eventsourcing/eventstore/bbolt
 
-go 1.13
+go 1.17
 
 require (
 	github.com/hallgren/eventsourcing/core v0.4.0
