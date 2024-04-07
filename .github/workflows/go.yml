@@ -21,8 +21,20 @@ jobs:
       with:
         go-version: '1.13'
 
-    - name: Build
+    - name: Build main module
       run: go build -v ./...
 
-    - name: Test
+    - name: Test main module
       run: go test -v ./...
+
+    - name: Build bbolt eventstore
+      run: cd eventstore/bbolt && go build -v ./...
+
+    - name: Test bbolt eventstore
+      run: cd eventstore/bbolt && go test -v ./...
+        
+    - name: Build sql eventstore
+      run: cd eventstore/sql && go build -v ./...
+
+    - name: Test sql eventstore
+      run: cd eventstore/sql && go test -v ./...
