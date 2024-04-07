@@ -45,3 +45,19 @@ jobs:
       - name: Test
         run: cd eventstore/bbolt && go test -v ./...
        
+  sql:
+    name: sql eventstore
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.13'
+
+      - name: Build
+        run: cd eventstore/sql && go build -v ./...
+
+      - name: Test
+        run: cd eventstore/sql && go test -v ./...
