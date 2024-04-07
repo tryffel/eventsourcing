@@ -11,30 +11,37 @@ on:
 
 jobs:
 
-  build:
+  main:
+    name: Main module
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: '1.13'
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.13'
 
-    - name: Build main module
-      run: go build -v ./...
+      - name: Build
+        run: go build -v ./...
 
-    - name: Test main module
-      run: go test -v ./...
+      - name: Test
+        run: go test -v ./...
 
-    - name: Build bbolt eventstore
-      run: cd eventstore/bbolt && go build -v ./...
+  bbolt:
+    name: bbolt eventstore
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
 
-    - name: Test bbolt eventstore
-      run: cd eventstore/bbolt && go test -v ./...
-        
-    - name: Build sql eventstore
-      run: cd eventstore/sql && go build -v ./...
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.13'
 
-    - name: Test sql eventstore
-      run: cd eventstore/sql && go test -v ./...
+      - name: Build
+        run: cd eventstore/bbolt && go build -v ./...
+
+      - name: Test
+        run: cd eventstore/bbolt && go test -v ./...
+       
