@@ -1,14 +1,12 @@
-//go:build manual
-// +build manual
-
-// make these tests manual as they are dependent on a running event store db.
-
 package esdb_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/EventStore/EventStore-Client-Go/v3/esdb"
+	"github.com/testcontainers/testcontainers-go"
+	"github.com/testcontainers/testcontainers-go/wait"
 
 	"github.com/hallgren/eventsourcing/core"
 	"github.com/hallgren/eventsourcing/core/testsuite"
@@ -16,9 +14,35 @@ import (
 )
 
 func TestSuite(t *testing.T) {
+	ctx := context.Background()
+
+	req := testcontainers.ContainerRequest{
+		Image:        "eventstore/eventstore:latest",
+		ExposedPorts: []string{"2113/tcp"},
+		WaitingFor:   wait.ForListeningPort("2113/tcp"),
+		Cmd:          []string{"--insecure", "--run-projections=All", "--mem-db"},
+	}
+
+	container, err := testcontainers.GenericContainer(
+		ctx,
+		testcontainers.GenericContainerRequest{
+			ContainerRequest: req,
+			Started:          true,
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer container.Terminate(ctx)
+
+	endpoint, err := container.PortEndpoint(ctx, "2113", "esdb")
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	f := func() (core.EventStore, func(), error) {
-		// region createClient
-		settings, err := esdb.ParseConnectionString("esdb://localhost:2113?tls=false")
+		settings, err := esdb.ParseConnectionString(endpoint + "?tls=false")
 		if err != nil {
 			return nil, nil, err
 		}
