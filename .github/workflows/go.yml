@@ -61,3 +61,20 @@ jobs:
 
       - name: Test
         run: cd eventstore/sql && go test -v ./...
+
+  esdb:
+    name: esdb eventstore
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: Build
+        run: cd eventstore/esdb && go build -v ./...
+
+      - name: Test
+        run: cd eventstore/esdb && go test -v ./...
