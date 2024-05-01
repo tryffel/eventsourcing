@@ -1,5 +1,5 @@
-# To test against an event store DB instance 
+# esdb event store
 
-```sh
-docker run -it -p 2113:2113 -p 1113:1113 eventstore/eventstore:latest --insecure --run-projections=All --enable-external-tcp --enable-atom-pub-over-http --mem-db
-```
+The esdb event store is supporting the [EventStoreDB](https://www.eventstore.com) database.
+
+It's based on the module github.com/EventStore/EventStore-Client-Go/v3 for reading and writing events.
