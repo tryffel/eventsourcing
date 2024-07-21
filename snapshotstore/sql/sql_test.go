@@ -2,29 +2,52 @@ package sql_test
 
 import (
 	sqldriver "database/sql"
-	"fmt"
-	"math/rand"
 	"testing"
-	"time"
 
 	"github.com/hallgren/eventsourcing/core"
 	"github.com/hallgren/eventsourcing/core/testsuite"
 	"github.com/hallgren/eventsourcing/snapshotstore/sql"
-	_ "github.com/proullon/ramsql/driver"
+	_ "github.com/mattn/go-sqlite3"
 )
-
-var seededRand = rand.New(rand.NewSource(time.Now().UnixNano()))
 
 func TestSuite(t *testing.T) {
 	f := func() (core.SnapshotStore, func(), error) {
-		r := seededRand.Intn(999999999999)
-		db, err := sqldriver.Open("ramsql", fmt.Sprintf("%d", r))
-		if err != nil {
-			t.Fatalf("could not open ramsql database %v", err)
-		}
-		store := sql.Open(db)
-		store.MigrateTest()
-		return store, func() { store.Close() }, nil
+		return snapshotstore()
 	}
 	testsuite.TestSnapshotStore(t, f)
+}
+
+func TestMultipleMigrate(t *testing.T) {
+	ss, close, err := snapshotstore()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer close()
+	err = ss.Migrate()
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func snapshotstore() (*sql.SQL, func(), error) {
+	db, err := sqldriver.Open("sqlite3", "file::memory:?locked.sqlite?cache=shared")
+	if err != nil {
+		return nil, nil, err
+	}
+
+	db.SetMaxOpenConns(1)
+	err = db.Ping()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	store := sql.Open(db)
+	err = store.Migrate()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return store, func() {
+		store.Close()
+	}, nil
 }

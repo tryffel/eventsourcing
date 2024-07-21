@@ -13,17 +13,20 @@ func (s *SQL) Migrate() error {
 	return s.migrate(sqlStmt)
 }
 
-// MigrateTest remove the index that the test sql driver does not support
-func (s *SQL) MigrateTest() error {
-	return s.migrate([]string{createTable})
-}
-
 func (s *SQL) migrate(stm []string) error {
 	tx, err := s.db.BeginTx(context.Background(), nil)
 	if err != nil {
-		return nil
+		return err
 	}
 	defer tx.Rollback()
+
+	// check if the migration is already done
+	rows, err := tx.Query(`Select count(*) from snapshots`)
+	if err == nil {
+		rows.Close()
+		return nil
+	}
+
 	for _, b := range stm {
 		_, err := tx.Exec(b)
 		if err != nil {
