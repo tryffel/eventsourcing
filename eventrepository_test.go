@@ -427,20 +427,22 @@ func TestConcurrentRead(t *testing.T) {
 		t.Fatal("could not save aggregate")
 	}
 
-	p1 := Person{}
-	p2 := Person{}
-	wg := sync.WaitGroup{}
-	wg.Add(2)
-	go func() {
-		repo.Get(person.ID(), &p1)
-		wg.Done()
-	}()
-	go func() {
-		repo.Get(person2.ID(), &p2)
-		wg.Done()
-	}()
-	wg.Wait()
-	if p1.Name == p2.Name {
-		t.Fatal("name should differ")
+	for i := 1; i <= 1000; i++ {
+		p1 := Person{}
+		p2 := Person{}
+		wg := sync.WaitGroup{}
+		wg.Add(2)
+		go func() {
+			repo.Get(person.ID(), &p1)
+			wg.Done()
+		}()
+		go func() {
+			repo.Get(person2.ID(), &p2)
+			wg.Done()
+		}()
+		wg.Wait()
+		if p1.Name == p2.Name {
+			t.Fatal("name should differ")
+		}
 	}
 }
