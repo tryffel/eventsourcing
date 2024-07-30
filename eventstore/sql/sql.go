@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/hallgren/eventsourcing/core"
@@ -12,13 +13,31 @@ import (
 
 // SQL event store handler
 type SQL struct {
-	db *sql.DB
+	db   *sql.DB
+	lock *sync.Mutex
 }
 
 // Open connection to database
 func Open(db *sql.DB) *SQL {
 	return &SQL{
 		db: db,
+	}
+}
+
+// OpenWithSingelWriter prevents multiple writers to save events concurrently
+//
+// Multiple go routines writing concurrently to sqlite could produce sqlite to lock.
+// https://www.sqlite.org/cgi/src/doc/begin-concurrent/doc/begin_concurrent.md
+//
+// "If there is significant contention for the writer lock, this mechanism can
+// be inefficient. In this case it is better for the application to use a mutex
+// or some other mechanism that supports blocking to ensure that at most one
+// writer is attempting to COMMIT a BEGIN CONCURRENT transaction at a time.
+// This is usually easier if all writers are part of the same operating system process."
+func OpenWithSingelWriter(db *sql.DB) *SQL {
+	return &SQL{
+		db:   db,
+		lock: &sync.Mutex{},
 	}
 }
 
@@ -32,6 +51,12 @@ func (s *SQL) Save(events []core.Event) error {
 	// If no event return no error
 	if len(events) == 0 {
 		return nil
+	}
+
+	if s.lock != nil {
+		// prevent multiple writers
+		s.lock.Lock()
+		defer s.lock.Unlock()
 	}
 	aggregateID := events[0].AggregateID
 	aggregateType := events[0].AggregateType
