@@ -61,5 +61,8 @@ func (r *Register) Register(a aggregate) {
 }
 
 func eventToFunc(event interface{}) registerFunc {
-	return func() interface{} { return event }
+	return func() interface{} {
+		// return a new instance of the event
+		return reflect.New(reflect.TypeOf(event).Elem()).Interface()
+	}
 }
