@@ -41,7 +41,7 @@ type Group struct {
 	projections []*Projection
 	cancelF     context.CancelFunc
 	wg          sync.WaitGroup
-	ErrChan     chan ProjectionResult
+	ErrChan     chan error
 }
 
 // ProjectionResult is the return type for a Group and Race
@@ -174,7 +174,7 @@ func (ph *ProjectionHandler) Group(projections ...*Projection) *Group {
 		handler:     ph,
 		projections: projections,
 		cancelF:     func() {},
-		ErrChan:     make(chan ProjectionResult),
+		ErrChan:     make(chan error),
 	}
 }
 
@@ -190,7 +190,7 @@ func (g *Group) Start() {
 			defer g.wg.Done()
 			result := p.Run(ctx)
 			if !errors.Is(result.Error, context.Canceled) {
-				g.ErrChan <- result
+				g.ErrChan <- result.Error
 			}
 		}(projection)
 	}

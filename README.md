@@ -436,15 +436,7 @@ RunToEnd fetch events from the event store until it reaches the end of the event
 RunToEnd(ctx context.Context) ProjectionResult
 ```
 
-#### Run
-
-Run will run forever until canceled from the outside. When it hits the end of the event stream it will start a timer and sleep the time set in the projection property `Pace`.
-
-```go
-Run(ctx context.Context) ProjectionResult
-```
-
-All run methods return a ProjectionResult.
+`RunOnce` and `RunToEnd` both return a ProjectionResult 
 
 ```go
 type ProjectionResult struct {
@@ -457,6 +449,14 @@ type ProjectionResult struct {
 * **Error** Is set if the projection returned an error
 * **ProjectionName** Is the name of the projection
 * **LastHandledEvent** The last successfully handled event (can be useful during debugging)
+
+#### Run
+
+Run will run forever until canceled from the outside. When it hits the end of the event stream it will start a timer and sleep the time set in the projection property `Pace`.
+
+```go
+Run(ctx context.Context) error
+```
 
 ### Projection properties
 

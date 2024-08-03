@@ -188,15 +188,13 @@ func TestErrorFromCallback(t *testing.T) {
 	g.Start()
 	defer g.Stop()
 
-	var result eventsourcing.ProjectionResult
-
 	select {
-	case result = <-g.ErrChan:
+	case err = <-g.ErrChan:
 	case <-time.After(time.Second):
 		t.Fatal("test timed out")
 	}
 
-	if !errors.Is(result.Error, ErrApplication) {
+	if !errors.Is(err, ErrApplication) {
 		if err != nil {
 			t.Fatalf("expected application error but got %s", err.Error())
 		}
