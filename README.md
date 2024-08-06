@@ -452,7 +452,7 @@ type ProjectionResult struct {
 
 #### Run
 
-Run will run forever until canceled from the outside. When it hits the end of the event stream it will start a timer and sleep the time set in the projection property `Pace`.
+Run will run forever until event consumer is returning an error or if it's canceled from the outside. When it hits the end of the event stream it will start a timer and sleep the time set in the projection property `Pace`.
 
 ```go
 Run(ctx context.Context) error
@@ -497,8 +497,8 @@ defer g.Stop()
 
 // handling error in projection or termination from outside
 select {
-	case result := <-g.ErrChan:
-		// handle the result that will have an error in the result.Error
+	case err := <-g.ErrChan:
+		// handle the error
 	case <-doneChan:
 		// stop signal from the out side
 		return

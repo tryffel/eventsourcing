@@ -125,8 +125,8 @@ func TestRun(t *testing.T) {
 	defer cancel()
 
 	// will run once then sleep 10 seconds
-	result := proj.Run(ctx)
-	if !errors.Is(result.Error, context.DeadlineExceeded) {
+	err = proj.Run(ctx)
+	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatal(err)
 	}
 

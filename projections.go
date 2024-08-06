@@ -67,7 +67,7 @@ func (ph *ProjectionHandler) Projection(fetchF fetchFunc, callbackF callbackFunc
 
 // Run runs the projection forever until the context is cancelled. When there are no more events to consume it
 // sleeps the set pace before it runs again.
-func (p *Projection) Run(ctx context.Context) ProjectionResult {
+func (p *Projection) Run(ctx context.Context) error {
 	var result ProjectionResult
 	timer := time.NewTimer(0)
 	for {
@@ -76,11 +76,11 @@ func (p *Projection) Run(ctx context.Context) ProjectionResult {
 			if !timer.Stop() {
 				<-timer.C
 			}
-			return ProjectionResult{Error: ctx.Err(), Name: result.Name, LastHandledEvent: result.LastHandledEvent}
+			return ctx.Err()
 		case <-timer.C:
 			result = p.RunToEnd(ctx)
 			if result.Error != nil {
-				return result
+				return result.Error
 			}
 		}
 		timer.Reset(p.Pace)
@@ -188,9 +188,9 @@ func (g *Group) Start() {
 	for _, projection := range g.projections {
 		go func(p *Projection) {
 			defer g.wg.Done()
-			result := p.Run(ctx)
-			if !errors.Is(result.Error, context.Canceled) {
-				g.ErrChan <- result.Error
+			err := p.Run(ctx)
+			if !errors.Is(err, context.Canceled) {
+				g.ErrChan <- err
 			}
 		}(projection)
 	}
