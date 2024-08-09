@@ -1,7 +1,9 @@
 module github.com/hallgren/eventsourcing/example
 
-go 1.13
+go 1.19
 
-require github.com/hallgren/eventsourcing v0.5.1
+require github.com/hallgren/eventsourcing v0.6.0
+
+require github.com/hallgren/eventsourcing/core v0.4.0 // indirect
 
 // replace github.com/hallgren/eventsourcing => ../.
