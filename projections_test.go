@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -124,8 +125,8 @@ func TestRun(t *testing.T) {
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Second))
 	defer cancel()
 
-	// will run once then sleep 10 seconds
-	err = proj.Run(ctx)
+	// will run once then sleep for 10 seconds
+	err = proj.Run(ctx, time.Second*10)
 	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatal(err)
 	}
@@ -135,9 +136,152 @@ func TestRun(t *testing.T) {
 	}
 }
 
+func TestRunSameProjectionConcurrently(t *testing.T) {
+	// setup
+	es := memory.Create()
+	register := eventsourcing.NewRegister()
+	register.Register(&Person{})
+
+	sourceName := "kalle"
+
+	err := createPersonEvent(es, sourceName, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	// run projection
+	p := eventsourcing.NewProjectionHandler(register, eventsourcing.EncoderJSON{})
+	proj := p.Projection(es.All(0, 1), func(event eventsourcing.Event) error {
+		wg.Done()
+		return nil
+	})
+
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Second))
+	defer cancel()
+
+	// Run the projection
+	go func() {
+		proj.Run(ctx, time.Second*10)
+	}()
+
+	// wait to make sure the projection is already running
+	wg.Wait()
+
+	err = proj.Run(ctx, time.Second*10)
+	if !errors.Is(err, eventsourcing.ErrProjectionAlreadyRunning) {
+		t.Fatal(err)
+	}
+}
+
+func TestTriggerSync(t *testing.T) {
+	// setup
+	es := memory.Create()
+	register := eventsourcing.NewRegister()
+	register.Register(&Person{})
+
+	projectedName := ""
+	sourceName := "kalle"
+
+	// run projection
+	p := eventsourcing.NewProjectionHandler(register, eventsourcing.EncoderJSON{})
+	proj := p.Projection(es.All(0, 1), func(event eventsourcing.Event) error {
+		switch e := event.Data().(type) {
+		case *Born:
+			projectedName = e.Name
+		}
+		return nil
+	})
+
+	group := p.Group(proj)
+	group.Start()
+	defer group.Stop()
+
+	// make sure the projection has finished it's first round
+	time.Sleep(time.Millisecond * 10)
+
+	// create the event after the projection is started as the projection would have consume it.
+	err := createPersonEvent(es, sourceName, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// check projection is not updated before trigger
+	if projectedName == sourceName {
+		t.Fatalf("expected projected name to differ: %q was %q", sourceName, projectedName)
+	}
+
+	// trigger the projection
+	group.TriggerSync()
+
+	// check that the projected value is updated
+	if projectedName != sourceName {
+		t.Fatalf("expected projected name: %q was %q", sourceName, projectedName)
+	}
+}
+
+func TestTriggerAsync(t *testing.T) {
+	// setup
+	es := memory.Create()
+	register := eventsourcing.NewRegister()
+	register.Register(&Person{})
+
+	projectedName := ""
+	sourceName := "kalle"
+
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+
+	// run projection
+	p := eventsourcing.NewProjectionHandler(register, eventsourcing.EncoderJSON{})
+	proj := p.Projection(es.All(0, 1), func(event eventsourcing.Event) error {
+		switch e := event.Data().(type) {
+		case *Born:
+			projectedName = e.Name
+		}
+		wg.Done()
+		return nil
+	})
+
+	group := p.Group(proj)
+	group.Start()
+	defer group.Stop()
+
+	// make sure the projection has finished it's first round
+	time.Sleep(time.Millisecond * 10)
+
+	// create the event after the projection is started as the projection would have consume it.
+	err := createPersonEvent(es, sourceName, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// check projection is not updated before trigger
+	if projectedName == sourceName {
+		t.Fatalf("expected projected name to differ: %q was %q", sourceName, projectedName)
+	}
+
+	// trigger the projection
+	group.TriggerAsync()
+	group.TriggerAsync()
+	group.TriggerAsync()
+
+	// wait until the async trigger has finished
+	wg.Wait()
+
+	// check that the projected value is updated
+	if projectedName != sourceName {
+		t.Fatalf("expected projected name: %q was %q", sourceName, projectedName)
+	}
+}
+
 func TestCloseEmptyGroup(t *testing.T) {
 	p := eventsourcing.NewProjectionHandler(eventsourcing.NewRegister(), eventsourcing.EncoderJSON{})
 	g := p.Group()
+	g.Stop()
+	g.Start()
+	g.Stop()
 	g.Stop()
 }
 

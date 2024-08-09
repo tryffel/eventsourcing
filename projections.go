@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/hallgren/eventsourcing/core"
@@ -19,6 +20,9 @@ type ProjectionHandler struct {
 	count    int
 }
 
+// ErrProjectionAlreadyRunning is returned if Run is called on an already running projection
+var ErrProjectionAlreadyRunning = errors.New("projection is already running")
+
 func NewProjectionHandler(register *Register, encoder encoder) *ProjectionHandler {
 	return &ProjectionHandler{
 		register: register,
@@ -27,16 +31,18 @@ func NewProjectionHandler(register *Register, encoder encoder) *ProjectionHandle
 }
 
 type Projection struct {
+	running   atomic.Bool
 	fetchF    fetchFunc
 	callbackF callbackFunc
 	handler   *ProjectionHandler
-	Pace      time.Duration // Pace is used when a projection is running and it reaches the end of the event stream
-	Strict    bool          // Strict indicate if the projection should return error if the event it fetches is not found in the register
+	trigger   chan func()
+	Strict    bool // Strict indicate if the projection should return error if the event it fetches is not found in the register
 	Name      string
 }
 
 // Group runs projections concurrently
 type Group struct {
+	Pace        time.Duration // Pace is used when a projection is running and it reaches the end of the event stream
 	handler     *ProjectionHandler
 	projections []*Projection
 	cancelF     context.CancelFunc
@@ -57,7 +63,7 @@ func (ph *ProjectionHandler) Projection(fetchF fetchFunc, callbackF callbackFunc
 		fetchF:    fetchF,
 		callbackF: callbackF,
 		handler:   ph,
-		Pace:      time.Second * 10,            // Default pace 10 seconds
+		trigger:   make(chan func()),
 		Strict:    true,                        // Default strict is active
 		Name:      fmt.Sprintf("%d", ph.count), // Default the name to it's creation index
 	}
@@ -65,25 +71,66 @@ func (ph *ProjectionHandler) Projection(fetchF fetchFunc, callbackF callbackFunc
 	return &projection
 }
 
+// TriggerAsync force a running projection to run immediately independent on the pace
+// It will return immediately after triggering the prjection to run.
+// If the trigger channel is already filled it will return without inserting any value.
+func (p *Projection) TriggerAsync() {
+	if !p.running.Load() {
+		return
+	}
+	select {
+	case p.trigger <- func() {}:
+	default:
+	}
+}
+
+// TriggerSync force a running projection to run immediately independent on the pace
+// It will wait for the projection to finish running to its current end before returning.
+func (p *Projection) TriggerSync() {
+	if !p.running.Load() {
+		return
+	}
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	f := func() {
+		wg.Done()
+	}
+	p.trigger <- f
+	wg.Wait()
+}
+
 // Run runs the projection forever until the context is cancelled. When there are no more events to consume it
-// sleeps the set pace before it runs again.
-func (p *Projection) Run(ctx context.Context) error {
-	var result ProjectionResult
-	timer := time.NewTimer(0)
+// waits for a trigger or context cancel.
+func (p *Projection) Run(ctx context.Context, pace time.Duration) error {
+	if p.running.Load() {
+		return ErrProjectionAlreadyRunning
+	}
+	p.running.Store(true)
+	defer func() {
+		p.running.Store(false)
+	}()
+
+	var noopFunc = func() {}
+	var f = noopFunc
+	triggerFunc := func() {
+		f()
+		// reset the f to the noop func
+		f = noopFunc
+	}
 	for {
+		result := p.RunToEnd(ctx)
+		// if triggered by a sync trigger the triggerFunc callback that it's finished
+		// if not triggered by a sync trigger the triggerFunc will call an no ops function
+		triggerFunc()
+		if result.Error != nil {
+			return result.Error
+		}
 		select {
 		case <-ctx.Done():
-			if !timer.Stop() {
-				<-timer.C
-			}
 			return ctx.Err()
-		case <-timer.C:
-			result = p.RunToEnd(ctx)
-			if result.Error != nil {
-				return result.Error
-			}
+		case <-time.After(pace):
+		case f = <-p.trigger:
 		}
-		timer.Reset(p.Pace)
 	}
 }
 
@@ -174,13 +221,14 @@ func (ph *ProjectionHandler) Group(projections ...*Projection) *Group {
 		handler:     ph,
 		projections: projections,
 		cancelF:     func() {},
-		ErrChan:     make(chan error),
+		Pace:        time.Second * 10, // Default pace 10 seconds
 	}
 }
 
 // Start starts all projectinos in the group, an error channel i created on the group to notify
 // if a result containing an error is returned from a projection
 func (g *Group) Start() {
+	g.ErrChan = make(chan error)
 	ctx, cancel := context.WithCancel(context.Background())
 	g.cancelF = cancel
 
@@ -188,7 +236,7 @@ func (g *Group) Start() {
 	for _, projection := range g.projections {
 		go func(p *Projection) {
 			defer g.wg.Done()
-			err := p.Run(ctx)
+			err := p.Run(ctx, g.Pace)
 			if !errors.Is(err, context.Canceled) {
 				g.ErrChan <- err
 			}
@@ -196,8 +244,31 @@ func (g *Group) Start() {
 	}
 }
 
-// Stop terminate all projections in the group
+// TriggerAsync force all projections to run not waiting for them to finish
+func (g *Group) TriggerAsync() {
+	for _, projection := range g.projections {
+		projection.TriggerAsync()
+	}
+}
+
+// TriggerSync force all projections to run and wait for them to finish
+func (g *Group) TriggerSync() {
+	wg := sync.WaitGroup{}
+	for _, projection := range g.projections {
+		wg.Add(1)
+		go func(p *Projection) {
+			p.TriggerSync()
+			wg.Done()
+		}(projection)
+	}
+	wg.Wait()
+}
+
+// Stop halts all projections in the group
 func (g *Group) Stop() {
+	if g.ErrChan == nil {
+		return
+	}
 	g.cancelF()
 
 	// return when all projections has stopped
@@ -205,6 +276,8 @@ func (g *Group) Stop() {
 
 	// close the error channel
 	close(g.ErrChan)
+
+	g.ErrChan = nil
 }
 
 // Race runs the projections to the end of the events streams.
