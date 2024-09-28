@@ -2,8 +2,6 @@ module github.com/hallgren/eventsourcing/eventstore/esdb
 
 go 1.22
 
-toolchain go1.22.6
-
 require (
 	github.com/EventStore/EventStore-Client-Go/v4 v4.1.0
 	github.com/hallgren/eventsourcing/core v0.4.0
