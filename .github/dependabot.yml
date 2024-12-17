@@ -5,7 +5,21 @@
 
 version: 2
 updates:
-  - package-ecosystem: "gomod" # See documentation for possible values
-    directory: "/eventstore/esdb/" # Location of package manifests
+# eventstore
+  - package-ecosystem: "gomod"
+    directory: "/eventstore/esdb/"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "gomod"
+    directory: "/eventstore/bbolt/"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "gomod" 
+    directory: "/eventstore/sql/" 
+    schedule:
+      interval: "weekly"
+# snapshotstore
+  - package-ecosystem: "gomod"
+    directory: "/snapshotstore/sql/"
     schedule:
       interval: "weekly"
