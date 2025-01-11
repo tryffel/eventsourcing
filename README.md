@@ -1,3 +1,10 @@
+> [!NOTE]
+> Parts of the repository are currently rewriting and will bring breaking changes. The changes will not affect data stored in event stores, but you have to change how aggregates are constructed and saved. The reason for the change is to simplify the event repository and create separate repositories for aggregates and projections. There will also be a new package `aggregate` containing the AggregateRoot and the repositories used to save and get aggregates.
+>
+>  The ongoing work is conducted in this (PR)[https://github.com/hallgren/eventsourcing/pull/143]. Please add comments there.
+>
+> BR Morgan
+
 # Overview
 
 This set of modules is a post implementation of [@jen20's](https://github.com/jen20) way of implementing event sourcing. You can find the original blog post [here](https://jen20.dev/post/event-sourcing-in-go/) and github repo [here](https://github.com/jen20/go-event-sourcing-sample).
