@@ -118,7 +118,7 @@ func (e *EventStream) All(f func(e Event)) *subscription {
 }
 
 // AggregateID subscribe to events that belongs to aggregate's based on its type and ID
-func (e *EventStream) AggregateID(f func(e Event), aggregates ...aggregate) *subscription {
+func (e *EventStream) AggregateID(f func(e Event), aggregates ...Aggregate) *subscription {
 	s := subscription{
 		eventF: f,
 	}
@@ -135,8 +135,8 @@ func (e *EventStream) AggregateID(f func(e Event), aggregates ...aggregate) *sub
 	defer e.lock.Unlock()
 
 	for _, a := range aggregates {
-		name := aggregateType(a)
-		root := a.root()
+		name := AggregateType(a)
+		root := a.Root()
 		ref := fmt.Sprintf("%s_%s_%s", root.path(), name, root.ID())
 
 		// adds one more function to the aggregate
@@ -146,7 +146,7 @@ func (e *EventStream) AggregateID(f func(e Event), aggregates ...aggregate) *sub
 }
 
 // Aggregate subscribe to events based on the aggregate type
-func (e *EventStream) Aggregate(f func(e Event), aggregates ...aggregate) *subscription {
+func (e *EventStream) Aggregate(f func(e Event), aggregates ...Aggregate) *subscription {
 	s := subscription{
 		eventF: f,
 	}
@@ -163,8 +163,8 @@ func (e *EventStream) Aggregate(f func(e Event), aggregates ...aggregate) *subsc
 	defer e.lock.Unlock()
 
 	for _, a := range aggregates {
-		name := aggregateType(a)
-		root := a.root()
+		name := AggregateType(a)
+		root := a.Root()
 		ref := fmt.Sprintf("%s_%s", root.path(), name)
 
 		// adds one more function to the aggregate

@@ -36,7 +36,7 @@ func NewSnapshotRepository(snapshotStore core.SnapshotStore, eventRepo *EventRep
 }
 
 // Register register the aggregate in the event repository
-func (s *SnapshotRepository) Register(a aggregate) {
+func (s *SnapshotRepository) Register(a Aggregate) {
 	s.eventRepository.Register(a)
 }
 
@@ -46,7 +46,7 @@ func (s *SnapshotRepository) EventRepository() *EventRepository {
 	return s.eventRepository
 }
 
-func (s *SnapshotRepository) GetWithContext(ctx context.Context, id string, a aggregate) error {
+func (s *SnapshotRepository) GetWithContext(ctx context.Context, id string, a Aggregate) error {
 	if reflect.ValueOf(a).Kind() != reflect.Ptr {
 		return ErrAggregateNeedsToBeAPointer
 	}
@@ -62,7 +62,7 @@ func (s *SnapshotRepository) GetWithContext(ctx context.Context, id string, a ag
 
 // GetSnapshot returns aggregate that is based on the snapshot data
 // Beware that it could be more events that has happened after the snapshot was taken
-func (s *SnapshotRepository) GetSnapshot(ctx context.Context, id string, a aggregate) error {
+func (s *SnapshotRepository) GetSnapshot(ctx context.Context, id string, a Aggregate) error {
 	if reflect.ValueOf(a).Kind() != reflect.Ptr {
 		return ErrAggregateNeedsToBeAPointer
 	}
@@ -73,8 +73,8 @@ func (s *SnapshotRepository) GetSnapshot(ctx context.Context, id string, a aggre
 	return err
 }
 
-func (s *SnapshotRepository) getSnapshot(ctx context.Context, id string, a aggregate) error {
-	snapshot, err := s.snapshotStore.Get(ctx, id, aggregateType(a))
+func (s *SnapshotRepository) getSnapshot(ctx context.Context, id string, a Aggregate) error {
+	snapshot, err := s.snapshotStore.Get(ctx, id, AggregateType(a))
 	if err != nil {
 		return err
 	}
@@ -94,7 +94,7 @@ func (s *SnapshotRepository) getSnapshot(ctx context.Context, id string, a aggre
 	}
 
 	// set the internal aggregate properties
-	root := a.root()
+	root := a.Root()
 	root.aggregateGlobalVersion = Version(snapshot.GlobalVersion)
 	root.aggregateVersion = Version(snapshot.Version)
 	root.aggregateID = snapshot.ID
@@ -103,7 +103,7 @@ func (s *SnapshotRepository) getSnapshot(ctx context.Context, id string, a aggre
 }
 
 // Save will save aggregate events and snapshot
-func (s *SnapshotRepository) Save(a aggregate) error {
+func (s *SnapshotRepository) Save(a Aggregate) error {
 	// make sure events are stored
 	err := s.eventRepository.Save(a)
 	if err != nil {
@@ -114,8 +114,8 @@ func (s *SnapshotRepository) Save(a aggregate) error {
 }
 
 // SaveSnapshot will only store the snapshot and will return an error if there are events that are not stored
-func (s *SnapshotRepository) SaveSnapshot(a aggregate) error {
-	root := a.root()
+func (s *SnapshotRepository) SaveSnapshot(a Aggregate) error {
+	root := a.Root()
 	if len(root.Events()) > 0 {
 		return ErrUnsavedEvents
 	}
@@ -138,7 +138,7 @@ func (s *SnapshotRepository) SaveSnapshot(a aggregate) error {
 
 	snapshot := core.Snapshot{
 		ID:            root.ID(),
-		Type:          aggregateType(a),
+		Type:          AggregateType(a),
 		Version:       core.Version(root.Version()),
 		GlobalVersion: core.Version(root.GlobalVersion()),
 		State:         state,

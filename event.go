@@ -40,7 +40,12 @@ func (e Event) Reason() string {
 	if e.data == nil {
 		return ""
 	}
-	return reflect.TypeOf(e.data).Elem().Name()
+	t := reflect.TypeOf(e.data)
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	name := t.Name()
+	return name
 }
 
 func (e Event) Version() Version {

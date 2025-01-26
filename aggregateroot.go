@@ -3,6 +3,7 @@ package eventsourcing
 import (
 	"errors"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/hallgren/eventsourcing/core"
@@ -28,14 +29,14 @@ var ErrAggregateNeedsToBeAPointer = errors.New("aggregate needs to be a pointer"
 
 // TrackChange is used internally by behaviour methods to apply a state change to
 // the current instance and also track it in order that it can be persisted later.
-func (ar *AggregateRoot) TrackChange(a aggregate, data interface{}) {
+func (ar *AggregateRoot) TrackChange(a Aggregate, data interface{}) {
 	ar.TrackChangeWithMetadata(a, data, nil)
 }
 
 // TrackChangeWithMetadata is used internally by behaviour methods to apply a state change to
 // the current instance and also track it in order that it can be persisted later.
 // meta data is handled by this func to store none related application state
-func (ar *AggregateRoot) TrackChangeWithMetadata(a aggregate, data interface{}, metadata map[string]interface{}) {
+func (ar *AggregateRoot) TrackChangeWithMetadata(a Aggregate, data interface{}, metadata map[string]interface{}) {
 	// This can be overwritten in the constructor of the aggregate
 	if ar.aggregateID == emptyAggregateID {
 		ar.aggregateID = idFunc()
@@ -45,7 +46,7 @@ func (ar *AggregateRoot) TrackChangeWithMetadata(a aggregate, data interface{}, 
 		event: core.Event{
 			AggregateID:   ar.aggregateID,
 			Version:       ar.nextVersion(),
-			AggregateType: aggregateType(a),
+			AggregateType: AggregateType(a),
 			Timestamp:     time.Now().UTC(),
 		},
 		data:     data,
@@ -56,7 +57,7 @@ func (ar *AggregateRoot) TrackChangeWithMetadata(a aggregate, data interface{}, 
 }
 
 // BuildFromHistory builds the aggregate state from events
-func (ar *AggregateRoot) BuildFromHistory(a aggregate, events []Event) {
+func (ar *AggregateRoot) BuildFromHistory(a Aggregate, events []Event) {
 	for _, event := range events {
 		a.Transition(event)
 		//Set the aggregate ID
@@ -72,7 +73,7 @@ func (ar *AggregateRoot) nextVersion() core.Version {
 }
 
 // update sets the AggregateVersion and AggregateGlobalVersion to the values in the last event
-// This function is called after the aggregate is saved in the repository
+// This function is called after the Aggregate is saved in the repository
 func (ar *AggregateRoot) update() {
 	if len(ar.aggregateEvents) > 0 {
 		lastEvent := ar.aggregateEvents[len(ar.aggregateEvents)-1]
@@ -82,7 +83,7 @@ func (ar *AggregateRoot) update() {
 	}
 }
 
-// path return the full name of the aggregate making it unique to other aggregates with
+// path return the full name of the Aggregate making it unique to other aggregates with
 // the same name but placed in other packages.
 func (ar *AggregateRoot) path() string {
 	return reflect.TypeOf(ar).Elem().PkgPath()
@@ -103,7 +104,7 @@ func (ar *AggregateRoot) ID() string {
 }
 
 // root returns the included Aggregate Root state, and is used from the interface Aggregate.
-func (ar *AggregateRoot) root() *AggregateRoot {
+func (ar *AggregateRoot) Root() *AggregateRoot {
 	return ar
 }
 
@@ -136,6 +137,24 @@ func (ar *AggregateRoot) UnsavedEvents() bool {
 	return len(ar.aggregateEvents) > 0
 }
 
-func aggregateType(a aggregate) string {
-	return reflect.TypeOf(a).Elem().Name()
+func AggregateType(a Aggregate) string {
+	t := reflect.TypeOf(a)
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+
+	var name string
+	if t.Name() == "Aggregate" {
+		pkg := ""
+		pkgSplits := strings.Split(t.PkgPath(), "/")
+		if len(pkgSplits) == 1 {
+			pkg = t.PkgPath()
+		} else if len(pkgSplits) > 1 {
+			pkg = pkgSplits[len(pkgSplits)-1]
+		}
+		name = pkg + t.Name()
+	} else {
+		name = t.Name()
+	}
+	return name
 }
