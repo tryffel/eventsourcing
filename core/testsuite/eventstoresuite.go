@@ -113,7 +113,8 @@ func saveAndGetEvents(es core.EventStore) error {
 	aggregateID := AggregateID()
 	events := testEvents(aggregateID)
 	fetchedEvents := []core.Event{}
-	err := es.Save(events)
+	saveFn := es.SaveFunc()
+	err := saveFn(events)
 	if err != nil {
 		return err
 	}
@@ -138,7 +139,8 @@ func saveAndGetEvents(es core.EventStore) error {
 	}
 
 	// Add more events to the same aggregate event stream
-	err = es.Save(testEventsPartTwo(aggregateID))
+	saveFn = es.SaveFunc()
+	err = saveFn(testEventsPartTwo(aggregateID))
 	if err != nil {
 		return err
 	}
@@ -181,7 +183,8 @@ func saveAndGetEvents(es core.EventStore) error {
 func getEventsAfterVersion(es core.EventStore) error {
 	var fetchedEvents []core.Event
 	aggregateID := AggregateID()
-	err := es.Save(testEvents(aggregateID))
+	saveFn := es.SaveFunc()
+	err := saveFn(testEvents(aggregateID))
 	if err != nil {
 		return err
 	}
@@ -213,7 +216,8 @@ func getEventsAfterVersion(es core.EventStore) error {
 func saveEventsInWrongVersion(es core.EventStore) error {
 	aggregateID := AggregateID()
 	events := testEventsPartTwo(aggregateID)
-	err := es.Save(events)
+	saveFn := es.SaveFunc()
+	err := saveFn(events)
 
 	if !errors.Is(err, core.ErrConcurrency) {
 		return errors.New("should not be able to save events that are out of sync compared to the storage order")
@@ -230,7 +234,7 @@ func saveAndGetEventsConcurrently(es core.EventStore) error {
 	for i := 0; i < 10; i++ {
 		events := testEvents(fmt.Sprintf("%s-%d", aggregateID, i))
 		go func() {
-			e := es.Save(events)
+			e := es.SaveFunc()(events)
 			if e != nil {
 				err = e
 			}
@@ -291,7 +295,8 @@ func saveReturnGlobalEventOrder(es core.EventStore) error {
 	aggregateID := AggregateID()
 	aggregateID2 := AggregateID()
 	events := testEvents(aggregateID)
-	err := es.Save(events)
+	saveFn := es.SaveFunc()
+	err := saveFn(events)
 	if err != nil {
 		return err
 	}
@@ -299,7 +304,7 @@ func saveReturnGlobalEventOrder(es core.EventStore) error {
 		return fmt.Errorf("expected global event order > 0 on last event got %d", events[len(events)-1].GlobalVersion)
 	}
 	events2 := []core.Event{testEventOtherAggregate(aggregateID2)}
-	err = es.Save(events2)
+	err = saveFn(events2)
 	if err != nil {
 		return err
 	}
