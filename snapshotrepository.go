@@ -74,7 +74,7 @@ func (s *SnapshotRepository) GetSnapshot(ctx context.Context, id string, a Aggre
 }
 
 func (s *SnapshotRepository) getSnapshot(ctx context.Context, id string, a Aggregate) error {
-	snapshot, err := s.snapshotStore.Get(ctx, id, AggregateType(a))
+	snapshot, err := s.snapshotStore.Get(ctx, id, a.Type())
 	if err != nil {
 		return err
 	}
@@ -138,7 +138,7 @@ func (s *SnapshotRepository) SaveSnapshot(a Aggregate) error {
 
 	snapshot := core.Snapshot{
 		ID:            root.ID(),
-		Type:          AggregateType(a),
+		Type:          a.Type(),
 		Version:       core.Version(root.Version()),
 		GlobalVersion: core.Version(root.GlobalVersion()),
 		State:         state,

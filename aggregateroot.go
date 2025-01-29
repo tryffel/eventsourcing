@@ -46,7 +46,7 @@ func (ar *AggregateRoot) TrackChangeWithMetadata(a Aggregate, data interface{}, 
 		event: core.Event{
 			AggregateID:   ar.aggregateID,
 			Version:       ar.nextVersion(),
-			AggregateType: AggregateType(a),
+			AggregateType: a.Type(),
 			Timestamp:     time.Now().UTC(),
 		},
 		data:     data,
@@ -144,17 +144,17 @@ func AggregateType(a Aggregate) string {
 	}
 
 	var name string
-	if t.Name() == "Aggregate" {
-		pkg := ""
-		pkgSplits := strings.Split(t.PkgPath(), "/")
-		if len(pkgSplits) == 1 {
-			pkg = t.PkgPath()
-		} else if len(pkgSplits) > 1 {
-			pkg = pkgSplits[len(pkgSplits)-1]
-		}
-		name = pkg + t.Name()
-	} else {
-		name = t.Name()
+	//if t.Name() == "Aggregate" {
+	pkg := ""
+	pkgSplits := strings.Split(t.PkgPath(), "/")
+	if len(pkgSplits) == 1 {
+		pkg = t.PkgPath()
+	} else if len(pkgSplits) > 1 {
+		pkg = pkgSplits[len(pkgSplits)-1]
 	}
+	name = pkg + "." + t.Name()
+	//} else {
+	//name = t.Name()
+	//}
 	return name
 }

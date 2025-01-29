@@ -30,14 +30,14 @@ func (r *Register) EventRegistered(event core.Event) (registerFunc, bool) {
 
 // AggregateRegistered return true if the aggregate is registered
 func (r *Register) AggregateRegistered(a Aggregate) bool {
-	typ := AggregateType(a)
+	typ := a.Type()
 	_, ok := r.aggregates[typ]
 	return ok
 }
 
 // Register store the aggregate and calls the aggregate method Register to register the aggregate events.
 func (r *Register) Register(a Aggregate) {
-	typ := AggregateType(a)
+	typ := a.Type()
 	r.aggregates[typ] = struct{}{}
 
 	// fe is a helper function to make the event type registration simpler

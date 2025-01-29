@@ -135,7 +135,7 @@ func (e *EventStream) AggregateID(f func(e Event), aggregates ...Aggregate) *sub
 	defer e.lock.Unlock()
 
 	for _, a := range aggregates {
-		name := AggregateType(a)
+		name := a.Type()
 		root := a.Root()
 		ref := fmt.Sprintf("%s_%s_%s", root.path(), name, root.ID())
 
@@ -163,7 +163,7 @@ func (e *EventStream) Aggregate(f func(e Event), aggregates ...Aggregate) *subsc
 	defer e.lock.Unlock()
 
 	for _, a := range aggregates {
-		name := AggregateType(a)
+		name := a.Type()
 		root := a.Root()
 		ref := fmt.Sprintf("%s_%s", root.path(), name)
 

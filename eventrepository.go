@@ -14,6 +14,7 @@ type Aggregate interface {
 	Root() *AggregateRoot
 	Transition(event Event)
 	Register(RegisterFunc)
+	Type() string
 }
 
 type EventSubscribers interface {
@@ -154,7 +155,7 @@ func (er *EventRepository) GetWithContext(ctx context.Context, id string, a Aggr
 	}
 
 	root := a.Root()
-	aggregateType := AggregateType(a)
+	aggregateType := a.Type()
 	// fetch events after the current version of the aggregate that could be fetched from the snapshot store
 	eventIterator, err := er.eventStore.Get(ctx, id, aggregateType, core.Version(root.aggregateVersion))
 	if err != nil {
