@@ -29,14 +29,14 @@ var ErrAggregateNeedsToBeAPointer = errors.New("aggregate needs to be a pointer"
 
 // TrackChange is used internally by behaviour methods to apply a state change to
 // the current instance and also track it in order that it can be persisted later.
-func (ar *AggregateRoot) TrackChange(a Aggregate, data interface{}) {
+func (ar *AggregateRoot) TrackChange(a Aggregate, data EventIdentifier) {
 	ar.TrackChangeWithMetadata(a, data, nil)
 }
 
 // TrackChangeWithMetadata is used internally by behaviour methods to apply a state change to
 // the current instance and also track it in order that it can be persisted later.
 // meta data is handled by this func to store none related application state
-func (ar *AggregateRoot) TrackChangeWithMetadata(a Aggregate, data interface{}, metadata map[string]interface{}) {
+func (ar *AggregateRoot) TrackChangeWithMetadata(a Aggregate, data EventIdentifier, metadata map[string]interface{}) {
 	// This can be overwritten in the constructor of the aggregate
 	if ar.aggregateID == emptyAggregateID {
 		ar.aggregateID = idFunc()

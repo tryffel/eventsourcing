@@ -1,26 +1,30 @@
 package eventsourcing
 
 import (
-	"reflect"
 	"time"
-
 	"github.com/hallgren/eventsourcing/core"
 )
 
 // Version is the event version used in event.Version and event.GlobalVersion
 type Version core.Version
 
+type EventType string
+
+type EventIdentifier interface {
+	EventType() EventType
+}
+
 type Event struct {
 	event    core.Event // internal event
-	data     interface{}
+	data     EventIdentifier
 	metadata map[string]interface{}
 }
 
-func NewEvent(e core.Event, data interface{}, metadata map[string]interface{}) Event {
+func NewEvent(e core.Event, data EventIdentifier, metadata map[string]interface{}) Event {
 	return Event{event: e, data: data, metadata: metadata}
 }
 
-func (e Event) Data() interface{} {
+func (e Event) Data() EventIdentifier {
 	return e.data
 }
 
@@ -40,12 +44,7 @@ func (e Event) Reason() string {
 	if e.data == nil {
 		return ""
 	}
-	t := reflect.TypeOf(e.data)
-	if t.Kind() == reflect.Ptr {
-		t = t.Elem()
-	}
-	name := t.Name()
-	return name
+	return string(e.data.Name())
 }
 
 func (e Event) Version() Version {

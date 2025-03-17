@@ -6,8 +6,8 @@ import (
 	"github.com/hallgren/eventsourcing/core"
 )
 
-type registerFunc = func() interface{}
-type RegisterFunc = func(events ...interface{})
+type registerFunc = func() EventIdentifier
+type RegisterFunc = func(events ...EventIdentifier)
 
 type Register struct {
 	aggregateEvents map[string]registerFunc
@@ -41,7 +41,7 @@ func (r *Register) Register(a Aggregate) {
 	r.aggregates[typ] = struct{}{}
 
 	// fe is a helper function to make the event type registration simpler
-	fe := func(events ...interface{}) []registerFunc {
+	fe := func(events ...EventIdentifier) []registerFunc {
 		res := []registerFunc{}
 		for _, e := range events {
 			res = append(res, eventToFunc(e))
@@ -49,7 +49,7 @@ func (r *Register) Register(a Aggregate) {
 		return res
 	}
 
-	fu := func(events ...interface{}) {
+	fu := func(events ...EventIdentifier) {
 		eventsF := fe(events...)
 		for _, f := range eventsF {
 			event := f()
@@ -60,9 +60,9 @@ func (r *Register) Register(a Aggregate) {
 	a.Register(fu)
 }
 
-func eventToFunc(event interface{}) registerFunc {
-	return func() interface{} {
+func eventToFunc(event EventIdentifier) registerFunc {
+	return func() EventIdentifier {
 		// return a new instance of the event
-		return reflect.New(reflect.TypeOf(event).Elem()).Interface()
+		return event
 	}
 }
