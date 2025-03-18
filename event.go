@@ -14,6 +14,10 @@ type EventIdentifier interface {
 	EventType() EventType
 }
 
+type AggregateIdentifier interface {
+	AggregateType() string
+}
+
 type Event struct {
 	event    core.Event // internal event
 	data     EventIdentifier
@@ -44,7 +48,7 @@ func (e Event) Reason() string {
 	if e.data == nil {
 		return ""
 	}
-	return string(e.data.Name())
+	return string(e.data.EventType())
 }
 
 func (e Event) Version() Version {

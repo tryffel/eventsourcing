@@ -1,13 +1,12 @@
 package eventsourcing
 
 import (
-	"reflect"
-
 	"github.com/hallgren/eventsourcing/core"
 )
 
 type registerFunc = func() EventIdentifier
 type RegisterFunc = func(events ...EventIdentifier)
+type RegisterAggregateFunc = func(aggregates ...AggregateIdentifier)
 
 type Register struct {
 	aggregateEvents map[string]registerFunc
@@ -53,7 +52,8 @@ func (r *Register) Register(a Aggregate) {
 		eventsF := fe(events...)
 		for _, f := range eventsF {
 			event := f()
-			reason := reflect.TypeOf(event).Elem().Name()
+			//reason := reflect.TypeOf(event).Elem().Name()
+			reason := string(event.EventType())
 			r.aggregateEvents[typ+"_"+reason] = f
 		}
 	}
